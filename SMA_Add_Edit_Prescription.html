@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Add or Edit Prescription</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 40px;
+      background-color: #f7f7f7;
+    }
+    .container {
+      max-width: 600px;
+      margin: auto;
+      background-color: white;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    }
+    h2 {
+      text-align: center;
+    }
+    .form-group {
+      margin-bottom: 15px;
+    }
+    label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: bold;
+    }
+    input, textarea {
+      width: 100%;
+      padding: 8px;
+      box-sizing: border-box;
+    }
+    .button-bar {
+      margin-top: 20px;
+      display: flex;
+      justify-content: center;
+      gap: 15px;
+    }
+    button {
+      padding: 10px 20px;
+      font-size: 16px;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    .submit-btn {
+      background-color: #4CAF50;
+      color: white;
+    }
+    .back-btn {
+      background-color: #888;
+      color: white;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <h2>Add or Edit Prescription</h2>
+
+    <div class="form-group">
+      <label for="medication">Medication Name</label>
+      <input type="text" id="medication" required>
+    </div>
+
+    <div class="form-group">
+      <label for="dosage">Dosage</label>
+      <input type="text" id="dosage">
+    </div>
+
+    <div class="form-group">
+      <label for="frequency">Frequency (e.g. 1x/day)</label>
+      <input type="text" id="frequency">
+    </div>
+
+    <div class="form-group">
+      <label for="start-date">Start Date</label>
+      <input type="date" id="start-date">
+    </div>
+
+    <div class="form-group">
+      <label for="end-date">End Date</label>
+      <input type="date" id="end-date">
+    </div>
+
+    <div class="form-group">
+      <label for="instructions">Instructions</label>
+      <textarea id="instructions" rows="3"></textarea>
+    </div>
+
+    <div class="button-bar">
+      <button class="submit-btn" onclick="savePrescription()">Save Prescription</button>
+      <button class="back-btn" onclick="goBack()">Back</button>
+    </div>
+  </div>
+
+  <script>
+    function savePrescription() {
+      const med = {
+        medication: document.getElementById('medication').value.trim(),
+        dosage: document.getElementById('dosage').value,
+        frequency: document.getElementById('frequency').value,
+        startDate: document.getElementById('start-date').value,
+        endDate: document.getElementById('end-date').value,
+        instructions: document.getElementById('instructions').value
+      };
+
+      if (!med.medication) {
+        alert("Medication name is required.");
+        return;
+      }
+
+      let meds = localStorage.getItem('medicationsList');
+      meds = meds ? JSON.parse(meds) : [];
+
+      const index =
