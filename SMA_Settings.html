@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Settings - Modify Medications Table Columns</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f5f5f5;
+      margin: 0;
+      padding: 20px;
+    }
+    .container {
+      max-width: 700px;
+      margin: 0 auto;
+      background-color: #fff;
+      border-radius: 8px;
+      padding: 20px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    }
+    h2 {
+      text-align: center;
+      color: #333;
+    }
+    .columns-list {
+      margin-top: 20px;
+    }
+    .column-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 12px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      margin-bottom: 10px;
+      background-color: #eef;
+    }
+    .column-name {
+      font-size: 16px;
+      color: #333;
+    }
+    .column-actions button {
+      margin-left: 10px;
+      padding: 5px 10px;
+      font-size: 14px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .delete-btn {
+      background-color: #f44336;
+      color: #fff;
+    }
+    .add-section {
+      margin-top: 20px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 10px;
+    }
+    .add-section input {
+      padding: 5px;
+      font-size: 16px;
+      width: 200px;
+    }
+    .add-section button {
+      padding: 5px 10px;
+      font-size: 16px;
+      border: none;
+      border-radius: 4px;
+      background-color: #4CAF50;
+      color: #fff;
+      cursor: pointer;
+    }
+    .button-bar {
+      margin-top: 30px;
+      text-align: center;
+    }
+    .button-bar button {
+      padding: 10px 20px;
+      font-size: 16px;
+      margin: 0 10px;
+      border: 1px solid #666;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    .save-btn {
+      background-color: #4CAF50;
+      color: #fff;
+    }
+    .enter-btn {
+      background-color: #90ee90;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <h2>Settings: Modify Medications Table Columns</h2>
+
+    <div class="columns-list" id="columnsList">
+      <!-- Dynamic list of current columns will be rendered here -->
+    </div>
+
+    <div class="add-section">
+      <input type="text" id="newColumnName" placeholder="New column name" />
+      <button onclick="addColumn()">Add Column</button>
+    </div>
+
+    <div class="button-bar">
+      <button class="save-btn" onclick="saveChanges()">Save Changes</button>
+      <button class="enter-btn" onclick="goHome()">Enter</button>
+    </div>
+  </div>
+
+  <script>
+    // Define default columns.
+    const defaultColumns = ["medication", "dosage", "frequency", "startDate", "endDate", "instructions"];
+
+    // Initialize the medicationsColumns storage if it doesn't exist.
+    function initColumns() {
+      if (!localStorage.getItem('medicationsColumns')) {
+        localStorage.setItem('medicationsColumns', JSON.stringify(defaultColumns));
+      }
+    }
+
+    // Render the list of columns.
+    function renderColumns() {
+      initColumns();
+      const columnsListElem = document.getElementById('columnsList');
+      columnsListElem.innerHTML = "";
+      
+      const columns = JSON.parse(localStorage.getItem('medicationsColumns'));
+      columns.forEach(col => {
+        const div = document.createElement('div');
+        div.className = 'column-item';
+        div.innerHTML = `
+          <span class="column-name">${col}</span>
+          <span class="column-actions">
+            <button class="delete-btn" onclick="deleteColumn('${col}')">Delete</button>
+          </span>
+        `;
+        columnsListElem.appendChild(div);
+      });
+    }
+
+    // Add a new column.
+    function addColumn() {
+      const colName = document.getElementById('newColumnName').value.trim();
+      if (!colName) {
+        alert("Please enter a column name.");
+        return;
+      }
+      
+      let columns = JSON.parse(localStorage.getItem('medicationsColumns'));
+      if (columns.includes(colName)) {
+        alert(`The column "${colName}" already exists.`);
+        return;
+      }
+      
+      columns.push(colName);
+      localStorage.setItem('medicationsColumns', JSON.stringify(columns));
+      
+      // Optionally, update existing medication records with this new column.
+      let meds = JSON.parse(localStorage.getItem('medicationsList') || '[]');
+      meds = meds.map(record => {
+        if (!(colName in record)) {
+          record[colName] = "";
+        }
+        return record;
+      });
+      localStorage.setItem('medicationsList', JSON.stringify(meds));
+      
+      document.getElementById('newColumnName').value = "";
+      renderColumns();
+      alert(`Column "${colName}" added.`);
+    }
+
+    // Delete a column.
+    function deleteColumn(colName) {
+      if (!confirm(`Are you sure you want to delete the column "${colName}" from all records?`)) {
+        return;
+      }
+      let columns = JSON.parse(localStorage.getItem('medicationsColumns'));
+      columns = columns.filter(col => col !== colName);
+      localStorage.setItem('medicationsColumns', JSON.stringify(columns));
+
+      // Remove the column from each medication record.
+      let meds = JSON.parse(localStorage.getItem('medicationsList') || '[]');
+      meds = meds.map(record => {
+        delete record[colName];
+        return record;
+      });
+      localStorage.setItem('medicationsList', JSON.stringify(meds));
+      
+      renderColumns();
+      alert(`Column "${colName}" deleted.`);
+    }
+
+    // Save Changes button (could include further logic, validations, etc.)
+    function saveChanges() {
+      alert("Changes saved to the local medications table.");
+    }
+
+    // Go back to the main menu.
+    function goHome() {
+      window.location.href = 'index.html';
+    }
+
+    window.onload = renderColumns;
+  </script>
+  
+</body>
+</html>
