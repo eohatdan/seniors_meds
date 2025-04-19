@@ -98,6 +98,29 @@
   </div>
 
   <script>
+    let loadingExisting = false;
+
+    document.getElementById('medication').addEventListener('blur', () => {
+      const name = document.getElementById('medication').value.trim();
+      if (!name || loadingExisting) return;
+      const meds = JSON.parse(localStorage.getItem('medicationsList') || '[]');
+      const idx = meds.findIndex(m => m.medication.toLowerCase() === name.toLowerCase());
+      if (idx >= 0) {
+        if (confirm(`"${name}" already exists. OK to load its data for editing, Cancel to enter a different name.`)) {
+          loadingExisting = true;
+          const med = meds[idx];
+          document.getElementById('dosage').value = med.dosage;
+          document.getElementById('frequency').value = med.frequency;
+          document.getElementById('start-date').value = med.startDate;
+          document.getElementById('end-date').value = med.endDate;
+          document.getElementById('instructions').value = med.instructions;
+          loadingExisting = false;
+        } else {
+          document.getElementById('medication').value = "";
+        }
+      }
+    });
+
     function savePrescription() {
       const name = document.getElementById('medication').value.trim();
       if (!name) {
@@ -127,7 +150,7 @@
 
       localStorage.setItem('medicationsList', JSON.stringify(meds));
 
-      // Clear the form so you can add another right away
+      // Clear the form for another entry
       document.getElementById('medication').value = "";
       document.getElementById('dosage').value = "";
       document.getElementById('frequency').value = "";
