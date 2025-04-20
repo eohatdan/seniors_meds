@@ -6,7 +6,7 @@ const supabaseKey = "D7FlItsKhOWsFr6sm";
 const supabase = createClient(supabaseUrl, supabaseKey);
 console.log("supabase connection successful");
 const openaiApiKey = "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"; // Consider loading from env or secure config
-console.log("supabase connection successful");
+console.log("OpenAI connection successful");
 const openaiApi = async (messages) => {
   const res = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
