@@ -1,83 +1,108 @@
-import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
-
-// Replace with your actual values
-const supabaseUrl = "https://db.ixxzxenspwzrkiazepbj.supabase.co";
-const supabaseKey = "D7FlItsKhOWsFr6sm";
-const supabase = createClient(supabaseUrl, supabaseKey);
-console.log("supabase connection successful");
-const openaiApiKey = "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"; // Consider loading from env or secure config
-console.log("OpenAI connection successful");
-const openaiApi = async (messages) => {
-  const res = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${openaiApiKey}`,
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      model: "gpt-4-turbo",
-      messages: messages,
-      temperature: 0.7
-    })
-  });
-  const data = await res.json();
-  return data.choices[0].message.content;
-};
-
-// Step 1: Retrieve patient data from Supabase
-async function getPatientData(patientId) {
-  const { data, error } = await supabase
-    .from("patients")
-    .select("*")
-    .eq("id", patientId)
-    .single();
-
-  if (error) throw new Error("Patient not found");
-  return data;
-}
-
-// Step 2: Ask GPT to generate a better prompt
-async function generateContextPrompt(userQuestion, patientData) {
-  const messages = [
-    {
-      role: "system",
-      content: "You are a medical AI assistant that rewrites vague user questions into specific prompts based on patient data."
-    },
-    {
-      role: "user",
-      content: `The user asked: "${userQuestion}"\n\nHere is the patient data:\n${JSON.stringify(patientData, null, 2)}\n\nRewrite the user's question as a medically informed prompt including all relevant patient information.`
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SMA AI Medications Agent</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #eef2f3;
+      padding: 30px;
+      max-width: 800px;
+      margin: auto;
     }
-  ];
-  return await openaiApi(messages);
-}
-
-// Step 3: Ask GPT the refined question
-async function getMedicalResponse(refinedPrompt) {
-  const messages = [
-    {
-      role: "system",
-      content: "You are a clinical assistant providing safe, informed responses for patient care."
-    },
-    {
-      role: "user",
-      content: refinedPrompt
+    h1 {
+      text-align: center;
+      color: #333;
     }
-  ];
-  return await openaiApi(messages);
-}
+    textarea, input, button {
+      width: 100%;
+      margin-top: 15px;
+      padding: 12px;
+      font-size: 1rem;
+      border-radius: 5px;
+      border: 1px solid #ccc;
+    }
+    button {
+      background-color: #007bff;
+      color: white;
+      cursor: pointer;
+      border: none;
+    }
+    button:hover {
+      background-color: #0056b3;
+    }
+    #output {
+      margin-top: 30px;
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      min-height: 100px;
+      white-space: pre-wrap;
+    }
+  </style>
+</head>
 
-// High-level function for self-prompting logic
-export async function askMedicalQuestion(patientId, userQuestion) {
-  try {
-    const patientData = await getPatientData(patientId);
-    const refinedPrompt = await generateContextPrompt(userQuestion, patientData);
-    const finalResponse = await getMedicalResponse(refinedPrompt);
+<body>
 
-    return {
-      prompt: refinedPrompt,
-      answer: finalResponse
-    };
-  } catch (err) {
-    return { error: err.message };
-  }
-}
+  <h1>💊 SMA AI Medications Agent</h1>
+
+  <label for="userInput"><strong>Ask your medication question:</strong></label>
+  <textarea id="userInput" rows="4" placeholder="Example: Can I take ibuprofen with my prescriptions?"></textarea>
+
+  <button onclick="sendQuestion()">Submit Question</button>
+
+  <div id="output">Your AI response will appear here.</div>
+
+  <script>
+    async function askOpenAI(messages) {
+      try {
+        const response = await fetch('https://your-railway-backend-url.up.railway.app/ask-openai', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ messages: messages })
+        });
+
+        if (!response.ok) {
+          throw new Error("Server returned an error.");
+        }
+
+        const answer = await response.json();
+        return answer;
+      } catch (error) {
+        console.error("Error contacting backend:", error);
+        return "⚠️ Error: Could not contact the AI server.";
+      }
+    }
+
+    async function sendQuestion() {
+      const inputField = document.getElementById('userInput');
+      const outputDiv = document.getElementById('output');
+      const userInput = inputField.value.trim();
+
+      if (!userInput) {
+        outputDiv.innerText = "❗ Please enter a question.";
+        return;
+      }
+
+      outputDiv.innerText = "🔄 Thinking... Please wait.";
+
+      const messages = [
+        {
+          role: "system",
+          content: "You are a helpful AI agent specializing in medications for seniors. Answer questions carefully and clearly."
+        },
+        {
+          role: "user",
+          content: userInput
+        }
+      ];
+
+      const answer = await askOpenAI(messages);
+      outputDiv.innerText = answer;
+    }
+  </script>
+
+</body>
+</html>
