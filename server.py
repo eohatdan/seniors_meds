@@ -4,10 +4,10 @@ import openai
 import os
 
 app = Flask(__name__)
-CORS(app)  # <--- ADD THIS LINE to enable CORS
+CORS(app)
 
-# Load OpenAI API key securely
-openai.api_key = os.getenv("OPENAI_API_KEY")
+# Set up OpenAI client (new 1.0+ style)
+client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 @app.route('/ask-openai', methods=['POST'])
 def ask_openai():
@@ -18,19 +18,16 @@ def ask_openai():
         if not messages:
             return jsonify({"error": "No messages provided"}), 400
 
-        # Make OpenAI call
-        response = openai.ChatCompletion.create(
+        # New 1.0+ syntax for chat completion
+        response = client.chat.completions.create(
             model="gpt-4-turbo",
             messages=messages,
             temperature=0.7
         )
-        return jsonify(response['choices'][0]['message']['content'])
+        return jsonify(response.choices[0].message.content)
 
     except Exception as e:
-        # 🔥 Print full error to Railway logs
         print("Error occurred:", str(e))
-
-        # Return the actual error message to the frontend temporarily
         return jsonify({"error": str(e)}), 500
 
 @app.route('/')
