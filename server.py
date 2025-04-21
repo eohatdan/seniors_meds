@@ -20,7 +20,7 @@ def ask_openai():
 
         # New 1.0+ syntax for chat completion
         response = client.chat.completions.create(
-            model="gpt-4-turbo",
+            model="gpt-3.5-turbo",
             messages=messages,
             temperature=0.7
         )
