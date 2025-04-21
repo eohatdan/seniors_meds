@@ -4,6 +4,33 @@ import openai
 import os
 
 app = Flask(__name__)
+CORS(app)  # Allow cross-origin requests
+
+# Set up OpenAI client using the NEW environment variable
+client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY_NEW"))
+
+@app.route('/ask-openai', methods=['POST'])
+def ask_openai():
+    try:
+        data = request.get_json()
+        messages = data.get('messages')
+
+        if not messages:
+            return jsonify({"error": "No messages provided"}), 400
+
+        # OpenAI Chat Completion request (new 1.0+ syntax)
+        response = client.chat.completions.create(
+            model="gpt-3.5-turbo",  # Using 3.5 temporarily for reliability
+            messages=messages,
+            temperature=0.7
+        )
+        return jsonify(response.choices[0].
+from flask import Flask, request, jsonify
+from flask_cors import CORS
+import openai
+import os
+
+app = Flask(__name__)
 CORS(app)
 
 # Set up OpenAI client (new 1.0+ style)
