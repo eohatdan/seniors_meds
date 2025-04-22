@@ -2,6 +2,7 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 import openai
 import os
+import sys
 
 app = Flask(__name__)
 CORS(app)
@@ -12,12 +13,14 @@ client = openai.OpenAI(
     base_url="https://api.openai.com/v1"
 )
 
+import sys
+
 def compose_refined_prompt(user_question, medications):
     """
-    Create a richer, conversational, context-specific refined prompt.
+    Create a context-rich, refined prompt that requires OpenAI to review medications and explain reasoning.
     """
     if not medications:
-        return user_question  # fallback: raw question if no meds available
+        return user_question  # fallback if no meds available
 
     med_list_text = "\n".join(
         f"- {med['name']} {med['dosage']} at {', '.join(med['times'])}"
@@ -25,20 +28,24 @@ def compose_refined_prompt(user_question, medications):
     )
 
     refined_prompt = f"""
-You are a careful and friendly medical assistant helping a patient.
+You are a careful and helpful medical assistant.
 
 The patient is currently taking the following medications:
 {med_list_text}
 
-The patient asks: "{user_question}"
+The patient has asked the following question:
+"{user_question}"
 
-Please consider the patient's current medications when answering. 
-Be specific if there are known risks, drug interactions, or recommendations. 
-Write your response in a natural, conversational tone that is easy for a non-medical person to understand.
-If appropriate, advise the patient to consult their healthcare provider.
+Please do the following carefully:
+- Explicitly evaluate the listed medications for any possible interactions or contraindications related to the patient's question.
+- If there is a concern, explain clearly why (e.g., "because it may increase bleeding risk when combined with X...").
+- If there is no concern, state that clearly too ("because there are no known interactions between these medications and ibuprofen").
+- Always provide simple, patient-friendly language that a non-medical person can easily understand.
+- End by advising whether it is safe or if they should consult their doctor before taking action.
 """.strip()
 
     return refined_prompt
+
 
 @app.route('/ask-openai', methods=['POST'])
 def ask_openai():
@@ -49,10 +56,13 @@ def ask_openai():
         medications = data.get('medications', [])
 
         print("Received user_question:", user_question)  # Debug
+        sys.stdout.flush()          
         print("Received medications:", medications)      # Debug
+        sys.stdout.flush()           
 
         refined_prompt = compose_refined_prompt(user_question, medications)
         print("Refined Prompt Sent to OpenAI:", refined_prompt)  # Debug
+        sys.stdout.flush()              
 
         response = client.chat.completions.create(
             model="gpt-3.5-turbo",
@@ -67,6 +77,7 @@ def ask_openai():
 
     except Exception as e:
         print("Error occurred:", str(e))
+        sys.stdout.flush()        
         return jsonify({"error": str(e)}), 500
 
 @app.route('/')
