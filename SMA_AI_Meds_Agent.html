@@ -57,8 +57,9 @@
 
   <script>
     async function askOpenAI(messages) {
-      try {
-        const response = await fetch('https://seniorsmeds-production.up.railway.app/ask-openai', {
+      try {your-render-url
+        await fetch('https://seniors-meds-2.onrender.com', {
+
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ messages: messages })
