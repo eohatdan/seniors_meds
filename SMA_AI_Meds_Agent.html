@@ -3,20 +3,19 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>SMA AI Medications Agent</title>
+  <title>SMA AI Medications Assistant</title>
   <style>
     body {
       font-family: Arial, sans-serif;
-      background: #eef2f3;
-      padding: 30px;
+      margin: 40px;
+      background: #f4f4f4;
       max-width: 800px;
       margin: auto;
     }
     h1 {
       text-align: center;
-      color: #333;
     }
-    textarea, input, button {
+    textarea, button {
       width: 100%;
       margin-top: 15px;
       padding: 12px;
@@ -27,56 +26,34 @@
     button {
       background-color: #007bff;
       color: white;
-      cursor: pointer;
       border: none;
+      cursor: pointer;
     }
     button:hover {
       background-color: #0056b3;
     }
     #output {
       margin-top: 30px;
-      background: white;
       padding: 20px;
+      background: white;
       border-radius: 8px;
       min-height: 100px;
       white-space: pre-wrap;
     }
   </style>
 </head>
-
 <body>
 
-  <h1>💊 SMA AI Medications Agent</h1>
+  <h1>💊 SMA AI Medications Assistant</h1>
 
-  <label for="userInput"><strong>Ask your medication question:</strong></label>
-  <textarea id="userInput" rows="4" placeholder="Example: Can I take ibuprofen with my prescriptions?"></textarea>
+  <label for="userInput"><strong>Ask a medication-related question:</strong></label>
+  <textarea id="userInput" rows="4" placeholder="e.g., Can I take ibuprofen with my current meds?"></textarea>
 
   <button onclick="sendQuestion()">Submit Question</button>
 
   <div id="output">Your AI response will appear here.</div>
 
   <script>
-    async function askOpenAI(messages) {
-  try {
-    const response = await fetch('https://seniors-meds-2.onrender.com/ask-openai', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ messages: messages })
-    });
-
-    if (!response.ok) {
-      throw new Error("Server returned an error.");
-    }
-
-    const answer = await response.json();
-    return answer.reply;  // <- Since server returns { "reply": "..." }
-  } catch (error) {
-    console.error("Error contacting backend:", error);
-    return "⚠️ Error: Could not contact the AI server.";
-  }
-}
-
-
     async function sendQuestion() {
       const inputField = document.getElementById('userInput');
       const outputDiv = document.getElementById('output');
@@ -89,19 +66,40 @@
 
       outputDiv.innerText = "🔄 Thinking... Please wait.";
 
-      const messages = [
-        {
-          role: "system",
-          content: "You are a helpful AI agent specializing in medications for seniors. Answer questions carefully and clearly."
-        },
-        {
-          role: "user",
-          content: userInput
+      // Pull medications from Local Storage
+      let medications = [];
+      try {
+        const storedMeds = localStorage.getItem('medications');
+        if (storedMeds) {
+          medications = JSON.parse(storedMeds);
         }
-      ];
+      } catch (err) {
+        console.error("Error reading medications from Local Storage:", err);
+      }
 
-      const answer = await askOpenAI(messages);
-      outputDiv.innerText = answer;
+      // Send user_question and medications to backend
+      const requestBody = {
+        user_question: userInput,
+        medications: medications
+      };
+
+      try {
+        const response = await fetch('https://https://seniors-meds-2.onrender.com/ask-openai', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(requestBody)
+        });
+
+        if (!response.ok) {
+          throw new Error("Server returned an error.");
+        }
+
+        const answer = await response.json();
+        outputDiv.innerText = answer.reply || "⚠️ No reply received.";
+      } catch (error) {
+        console.error("Error contacting backend:", error);
+        outputDiv.innerText = "⚠️ Error contacting AI server.";
+      }
     }
   </script>
 
