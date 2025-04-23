@@ -1,27 +1,29 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>SMA AI Medications Assistant</title>
   <style>
     body {
       font-family: Arial, sans-serif;
       margin: 40px;
-      background: #f4f4f4;
+      background-color: #f7f7f7;
       max-width: 800px;
       margin: auto;
     }
     h1 {
       text-align: center;
+      color: #333;
     }
     textarea, button {
       width: 100%;
-      margin-top: 15px;
       padding: 12px;
+      margin-top: 15px;
       font-size: 1rem;
       border-radius: 5px;
       border: 1px solid #ccc;
+      box-sizing: border-box;
     }
     button {
       background-color: #007bff;
@@ -32,6 +34,12 @@
     button:hover {
       background-color: #0056b3;
     }
+    .secondary-button {
+      background-color: #6c757d;
+    }
+    .secondary-button:hover {
+      background-color: #5a6268;
+    }
     #output {
       margin-top: 30px;
       padding: 20px;
@@ -39,6 +47,7 @@
       border-radius: 8px;
       min-height: 100px;
       white-space: pre-wrap;
+      border: 1px solid #ccc;
     }
   </style>
 </head>
@@ -50,10 +59,23 @@
   <textarea id="userInput" rows="4" placeholder="e.g., Can I take ibuprofen with my current meds?"></textarea>
 
   <button onclick="sendQuestion()">Submit Question</button>
+  <button onclick="goToMainMenu()" class="secondary-button">⬅️ Back to Main Menu</button>
 
   <div id="output">Your AI response will appear here.</div>
 
   <script>
+    // Submit question on Enter key
+    document.getElementById('userInput').addEventListener('keydown', function(event) {
+      if (event.key === 'Enter' && !event.shiftKey) {
+        event.preventDefault();
+        sendQuestion();
+      }
+    });
+
+    function goToMainMenu() {
+      window.location.href = 'index.html';
+    }
+
     async function sendQuestion() {
       const inputField = document.getElementById('userInput');
       const outputDiv = document.getElementById('output');
@@ -66,7 +88,7 @@
 
       outputDiv.innerText = "🔄 Thinking... Please wait.";
 
-      // Pull medications from Local Storage
+      // Read medications from Local Storage (key: 'medicationsList')
       let medications = [];
       try {
         const storedMeds = localStorage.getItem('medicationsList');
@@ -74,10 +96,9 @@
           medications = JSON.parse(storedMeds);
         }
       } catch (err) {
-        console.error("Error reading medications from Local Storage:", err);
+        console.error("Error parsing medications from Local Storage:", err);
       }
 
-      // Send user_question and medications to backend
       const requestBody = {
         user_question: userInput,
         medications: medications
