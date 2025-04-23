@@ -23,7 +23,7 @@ def compose_refined_prompt(user_question, medications):
         return user_question  # fallback if no meds available
 
     med_list_text = "\n".join(
-        f"- {med['name']} {med['dosage']} at {', '.join(med['times'])}"
+        f"- {med['medication']} {med['dosage']} at {', '.join(med['times'])}"
         for med in medications
     )
 
