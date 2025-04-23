@@ -69,7 +69,7 @@
       // Pull medications from Local Storage
       let medications = [];
       try {
-        const storedMeds = localStorage.getItem('medications');
+        const storedMeds = localStorage.getItem('medicationsList');
         if (storedMeds) {
           medications = JSON.parse(storedMeds);
         }
