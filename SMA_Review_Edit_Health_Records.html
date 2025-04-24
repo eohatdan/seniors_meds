@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Review or Edit Health Records</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 40px;
+      background-color: #f7f7f7;
+      max-width: 700px;
+      margin: auto;
+    }
+    h1 {
+      text-align: center;
+    }
+    label {
+      display: block;
+      margin-top: 20px;
+      font-weight: bold;
+    }
+    textarea {
+      width: 100%;
+      padding: 10px;
+      font-size: 1rem;
+      border-radius: 5px;
+      border: 1px solid #ccc;
+      resize: vertical;
+    }
+    button {
+      margin-top: 20px;
+      padding: 12px;
+      font-size: 1rem;
+      border: none;
+      border-radius: 5px;
+      background-color: #007bff;
+      color: white;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #0056b3;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>🧾 Review or Edit Health Records</h1>
+
+  <label for="conditions">Medical Conditions (comma separated)</label>
+  <textarea id="conditions" rows="3"></textarea>
+
+  <label for="allergies">Allergies (comma separated)</label>
+  <textarea id="allergies" rows="3"></textarea>
+
+  <label for="notes">Notes</label>
+  <textarea id="notes" rows="4"></textarea>
+
+  <button onclick="saveHealthRecords()">💾 Save Health Records</button>
+
+  <script>
+    function loadHealthRecords() {
+      const stored = localStorage.getItem('healthRecords');
+      if (stored) {
+        const record = JSON.parse(stored);
+        document.getElementById('conditions').value = (record.conditions || []).join(', ');
+        document.getElementById('allergies').value = (record.allergies || []).join(', ');
+        document.getElementById('notes').value = record.notes || '';
+      }
+    }
+
+    function saveHealthRecords() {
+      const conditions = document.getElementById('conditions').value.split(',').map(s => s.trim()).filter(Boolean);
+      const allergies = document.getElementById('allergies').value.split(',').map(s => s.trim()).filter(Boolean);
+      const notes = document.getElementById('notes').value.trim();
+
+      const record = {
+        conditions: conditions,
+        allergies: allergies,
+        notes: notes
+      };
+
+      localStorage.setItem('healthRecords', JSON.stringify(record));
+      alert("✅ Health records saved.");
+    }
+
+    window.onload = loadHealthRecords;
+  </script>
+
+</body>
+</html>
