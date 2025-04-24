@@ -13,26 +13,27 @@
     h1 {
       text-align: center;
     }
-    ul {
-      list-style: none;
-      padding: 0;
-    }
-    li {
+    .record-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
       background: #fff;
       margin: 10px 0;
       padding: 10px;
       border: 1px solid #ccc;
       border-radius: 5px;
-      position: relative;
     }
-    .dropdown {
-      position: absolute;
-      top: 10px;
-      right: 10px;
+    .record-text {
+      flex: 1;
+      margin-right: 10px;
+      word-break: break-word;
     }
-    button, select {
+    select {
+      padding: 5px;
+    }
+    button {
       margin-top: 20px;
-      padding: 10px;
+      padding: 12px;
       font-size: 1rem;
       border-radius: 5px;
       border: none;
@@ -53,36 +54,41 @@
   <h1>🧾 Review or Edit Health Records</h1>
 
   <h3>Conditions</h3>
-  <ul id="conditionsList"></ul>
+  <div id="conditionsList"></div>
 
   <h3>Allergies</h3>
-  <ul id="allergiesList"></ul>
+  <div id="allergiesList"></div>
 
   <h3>Notes</h3>
-  <p id="notesDisplay"></p>
+  <p id="notesDisplay" style="white-space: pre-wrap;"></p>
 
   <button onclick="window.location.href='SMA_Add_Health_Records.html'" class="btn-primary">➕ Add Health Record</button>
   <button onclick="window.location.href='index.html'" class="btn-secondary">⬅️ Back to Main Menu</button>
 
   <script>
-    function renderList(id, dataArray, recordType) {
-      const list = document.getElementById(id);
-      list.innerHTML = '';
+    function renderList(containerId, dataArray, type) {
+      const container = document.getElementById(containerId);
+      container.innerHTML = '';
+
       dataArray.forEach((item, index) => {
-        const li = document.createElement('li');
-        li.textContent = item;
+        const row = document.createElement('div');
+        row.className = 'record-row';
+
+        const text = document.createElement('div');
+        text.className = 'record-text';
+        text.textContent = item;
+
         const dropdown = document.createElement('select');
-        dropdown.className = 'dropdown';
-        const options = ['Options', 'Edit', 'Delete'];
-        options.forEach(opt => {
+        ['Options', 'Edit', 'Delete'].forEach(opt => {
           const option = document.createElement('option');
           option.value = opt;
           option.text = opt;
           dropdown.appendChild(option);
         });
+
         dropdown.onchange = function() {
           if (this.value === 'Edit') {
-            const newValue = prompt(`Edit ${recordType}:`, item);
+            const newValue = prompt(`Edit ${type}:`, item);
             if (newValue) {
               dataArray[index] = newValue;
               saveAndRender();
@@ -93,26 +99,26 @@
           }
           this.value = 'Options';
         };
-        li.appendChild(dropdown);
-        list.appendChild(li);
+
+        row.appendChild(text);
+        row.appendChild(dropdown);
+        container.appendChild(row);
       });
     }
 
     function saveAndRender() {
-      const records = {
+      const updated = {
         conditions: currentConditions,
         allergies: currentAllergies,
         notes: currentNotes
       };
-      localStorage.setItem('healthRecords', JSON.stringify(records));
+      localStorage.setItem('healthRecords', JSON.stringify(updated));
       renderList('conditionsList', currentConditions, 'condition');
       renderList('allergiesList', currentAllergies, 'allergy');
       document.getElementById('notesDisplay').textContent = currentNotes || 'None';
     }
 
-    let currentConditions = [];
-    let currentAllergies = [];
-    let currentNotes = '';
+    let currentConditions = [], currentAllergies = [], currentNotes = '';
 
     function loadHealthRecords() {
       const stored = localStorage.getItem('healthRecords');
