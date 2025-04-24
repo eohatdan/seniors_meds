@@ -6,44 +6,45 @@
   <style>
     body {
       font-family: Arial, sans-serif;
-      margin: 40px auto;
       max-width: 700px;
+      margin: 40px auto;
       background-color: #f7f7f7;
     }
     h1 {
       text-align: center;
     }
-    label {
-      display: block;
-      margin-top: 20px;
-      font-weight: bold;
+    ul {
+      list-style: none;
+      padding: 0;
     }
-    textarea {
-      width: 100%;
+    li {
+      background: #fff;
+      margin: 10px 0;
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      position: relative;
+    }
+    .dropdown {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+    }
+    button, select {
+      margin-top: 20px;
       padding: 10px;
       font-size: 1rem;
       border-radius: 5px;
-      border: 1px solid #ccc;
-      resize: vertical;
-    }
-    button {
-      margin-top: 20px;
-      padding: 12px;
-      font-size: 1rem;
       border: none;
-      border-radius: 5px;
-      background-color: #007bff;
-      color: white;
       cursor: pointer;
     }
-    button:hover {
-      background-color: #0056b3;
-    }
-    .secondary-button {
+    .btn-secondary {
       background-color: #6c757d;
+      color: white;
     }
-    .secondary-button:hover {
-      background-color: #5a6268;
+    .btn-primary {
+      background-color: #007bff;
+      color: white;
     }
   </style>
 </head>
@@ -51,47 +52,77 @@
 
   <h1>🧾 Review or Edit Health Records</h1>
 
-  <label for="conditions">Medical Conditions (comma separated)</label>
-  <textarea id="conditions" rows="3"></textarea>
+  <h3>Conditions</h3>
+  <ul id="conditionsList"></ul>
 
-  <label for="allergies">Allergies (comma separated)</label>
-  <textarea id="allergies" rows="3"></textarea>
+  <h3>Allergies</h3>
+  <ul id="allergiesList"></ul>
 
-  <label for="notes">Notes</label>
-  <textarea id="notes" rows="4"></textarea>
+  <h3>Notes</h3>
+  <p id="notesDisplay"></p>
 
-  <button onclick="saveHealthRecords()">💾 Save Health Records</button>
-  <button onclick="goToMainMenu()" class="secondary-button">⬅️ Back to Main Menu</button>
+  <button onclick="window.location.href='SMA_Add_Health_Records.html'" class="btn-primary">➕ Add Health Record</button>
+  <button onclick="window.location.href='index.html'" class="btn-secondary">⬅️ Back to Main Menu</button>
 
   <script>
+    function renderList(id, dataArray, recordType) {
+      const list = document.getElementById(id);
+      list.innerHTML = '';
+      dataArray.forEach((item, index) => {
+        const li = document.createElement('li');
+        li.textContent = item;
+        const dropdown = document.createElement('select');
+        dropdown.className = 'dropdown';
+        const options = ['Options', 'Edit', 'Delete'];
+        options.forEach(opt => {
+          const option = document.createElement('option');
+          option.value = opt;
+          option.text = opt;
+          dropdown.appendChild(option);
+        });
+        dropdown.onchange = function() {
+          if (this.value === 'Edit') {
+            const newValue = prompt(`Edit ${recordType}:`, item);
+            if (newValue) {
+              dataArray[index] = newValue;
+              saveAndRender();
+            }
+          } else if (this.value === 'Delete') {
+            dataArray.splice(index, 1);
+            saveAndRender();
+          }
+          this.value = 'Options';
+        };
+        li.appendChild(dropdown);
+        list.appendChild(li);
+      });
+    }
+
+    function saveAndRender() {
+      const records = {
+        conditions: currentConditions,
+        allergies: currentAllergies,
+        notes: currentNotes
+      };
+      localStorage.setItem('healthRecords', JSON.stringify(records));
+      renderList('conditionsList', currentConditions, 'condition');
+      renderList('allergiesList', currentAllergies, 'allergy');
+      document.getElementById('notesDisplay').textContent = currentNotes || 'None';
+    }
+
+    let currentConditions = [];
+    let currentAllergies = [];
+    let currentNotes = '';
+
     function loadHealthRecords() {
       const stored = localStorage.getItem('healthRecords');
       if (stored) {
-        const record = JSON.parse(stored);
-        document.getElementById('conditions').value = (record.conditions || []).join(', ');
-        document.getElementById('allergies').value = (record.allergies || []).join(', ');
-        document.getElementById('notes').value = record.notes || '';
+        const data = JSON.parse(stored);
+        currentConditions = data.conditions || [];
+        currentAllergies = data.allergies || [];
+        currentNotes = data.notes || '';
       }
-    }
-
-    function saveHealthRecords() {
-      const stored = localStorage.getItem('healthRecords');
-      let current = stored ? JSON.parse(stored) : { conditions: [], allergies: [], notes: '' };
-
-      const newConditions = document.getElementById('conditions').value.split(',').map(s => s.trim()).filter(Boolean);
-      const newAllergies = document.getElementById('allergies').value.split(',').map(s => s.trim()).filter(Boolean);
-      const newNotes = document.getElementById('notes').value.trim();
-
-      current.conditions = [...new Set([...current.conditions, ...newConditions])];
-      current.allergies = [...new Set([...current.allergies, ...newAllergies])];
-      if (newNotes) current.notes = newNotes;
-
-      localStorage.setItem('healthRecords', JSON.stringify(current));
-      alert("✅ Health records saved.");
-    }
-
-    function goToMainMenu() {
-      window.location.href = "index.html";
+      saveAndRender();
     }
 
     window.onload = loadHealthRecords;
