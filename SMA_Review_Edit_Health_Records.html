@@ -6,10 +6,9 @@
   <style>
     body {
       font-family: Arial, sans-serif;
-      margin: 40px;
-      background-color: #f7f7f7;
+      margin: 40px auto;
       max-width: 700px;
-      margin: auto;
+      background-color: #f7f7f7;
     }
     h1 {
       text-align: center;
@@ -40,6 +39,12 @@
     button:hover {
       background-color: #0056b3;
     }
+    .secondary-button {
+      background-color: #6c757d;
+    }
+    .secondary-button:hover {
+      background-color: #5a6268;
+    }
   </style>
 </head>
 <body>
@@ -56,6 +61,7 @@
   <textarea id="notes" rows="4"></textarea>
 
   <button onclick="saveHealthRecords()">💾 Save Health Records</button>
+  <button onclick="goToMainMenu()" class="secondary-button">⬅️ Back to Main Menu</button>
 
   <script>
     function loadHealthRecords() {
@@ -69,18 +75,23 @@
     }
 
     function saveHealthRecords() {
-      const conditions = document.getElementById('conditions').value.split(',').map(s => s.trim()).filter(Boolean);
-      const allergies = document.getElementById('allergies').value.split(',').map(s => s.trim()).filter(Boolean);
-      const notes = document.getElementById('notes').value.trim();
+      const stored = localStorage.getItem('healthRecords');
+      let current = stored ? JSON.parse(stored) : { conditions: [], allergies: [], notes: '' };
 
-      const record = {
-        conditions: conditions,
-        allergies: allergies,
-        notes: notes
-      };
+      const newConditions = document.getElementById('conditions').value.split(',').map(s => s.trim()).filter(Boolean);
+      const newAllergies = document.getElementById('allergies').value.split(',').map(s => s.trim()).filter(Boolean);
+      const newNotes = document.getElementById('notes').value.trim();
 
-      localStorage.setItem('healthRecords', JSON.stringify(record));
+      current.conditions = [...new Set([...current.conditions, ...newConditions])];
+      current.allergies = [...new Set([...current.allergies, ...newAllergies])];
+      if (newNotes) current.notes = newNotes;
+
+      localStorage.setItem('healthRecords', JSON.stringify(current));
       alert("✅ Health records saved.");
+    }
+
+    function goToMainMenu() {
+      window.location.href = "index.html";
     }
 
     window.onload = loadHealthRecords;
