@@ -2,23 +2,77 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Add Health Records</title>
+  <title>Add Health Record</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 700px;
+      margin: 40px auto;
+      background-color: #f0f0f0;
+    }
+    h1 {
+      text-align: center;
+    }
+    label {
+      display: block;
+      margin-top: 20px;
+      font-weight: bold;
+    }
+    input, textarea {
+      width: 100%;
+      padding: 10px;
+      font-size: 1rem;
+      border-radius: 5px;
+      border: 1px solid #ccc;
+    }
+    button {
+      margin-top: 20px;
+      padding: 12px;
+      font-size: 1rem;
+      border-radius: 5px;
+      border: none;
+      cursor: pointer;
+      background-color: #007bff;
+      color: white;
+    }
+    button:hover {
+      background-color: #0056b3;
+    }
+  </style>
 </head>
 <body>
+
+  <h1>➕ Add Health Record</h1>
+
+  <label for="condition">Condition</label>
+  <input type="text" id="condition" placeholder="e.g. Hypertension" />
+
+  <label for="allergy">Allergy</label>
+  <input type="text" id="allergy" placeholder="e.g. Penicillin" />
+
+  <label for="notes">Notes</label>
+  <textarea id="notes" rows="4" placeholder="Optional notes..."></textarea>
+
+  <button onclick="saveHealthRecord()">Save Record</button>
+
   <script>
-    window.location.href = "SMA_Review_Edit_Health_Records.html";
+    function saveHealthRecord() {
+      const condition = document.getElementById('condition').value.trim();
+      const allergy = document.getElementById('allergy').value.trim();
+      const notes = document.getElementById('notes').value.trim();
+
+      const existing = localStorage.getItem('healthRecords');
+      let record = existing ? JSON.parse(existing) : { conditions: [], allergies: [], notes: '' };
+
+      if (condition) record.conditions.push(condition);
+      if (allergy) record.allergies.push(allergy);
+      if (notes) record.notes = notes;
+
+      localStorage.setItem('healthRecords', JSON.stringify(record));
+      alert("✅ Record saved.");
+      window.location.href = "SMA_Review_Edit_Health_Records.html";
+    }
   </script>
-</body>
-</html>
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>Add Health Records</title>
-</head>
-<body>
-  <script>
-    window.location.href = "SMA_Review_Edit_Health_Records.html";
-  </script>
+
 </body>
 </html>
