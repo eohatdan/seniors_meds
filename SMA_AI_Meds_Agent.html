@@ -1,20 +1,17 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta charset="UTF-8">
   <title>SMA AI Medications Assistant</title>
   <style>
     body {
       font-family: Arial, sans-serif;
-      margin: 40px;
-      background-color: #f7f7f7;
+      margin: 40px auto;
       max-width: 800px;
-      margin: auto;
+      background-color: #f7f7f7;
     }
     h1 {
       text-align: center;
-      color: #333;
     }
     textarea, button {
       width: 100%;
@@ -23,7 +20,6 @@
       font-size: 1rem;
       border-radius: 5px;
       border: 1px solid #ccc;
-      box-sizing: border-box;
     }
     button {
       background-color: #007bff;
@@ -33,12 +29,6 @@
     }
     button:hover {
       background-color: #0056b3;
-    }
-    .secondary-button {
-      background-color: #6c757d;
-    }
-    .secondary-button:hover {
-      background-color: #5a6268;
     }
     #output {
       margin-top: 30px;
@@ -53,28 +43,23 @@
 </head>
 <body>
 
-  <h1>💊 SMA AI Medications Assistant</h1>
+  <h1>🤖 Ask AI About My Medications and Health</h1>
 
-  <label for="userInput"><strong>Ask a medication-related question:</strong></label>
-  <textarea id="userInput" rows="4" placeholder="e.g., Can I take ibuprofen with my current meds?"></textarea>
+  <label for="userInput"><strong>Ask a question:</strong></label>
+  <textarea id="userInput" rows="4" placeholder="e.g., Can I take ibuprofen with my meds and conditions?"></textarea>
 
   <button onclick="sendQuestion()">Submit Question</button>
-  <button onclick="goToMainMenu()" class="secondary-button">⬅️ Back to Main Menu</button>
+  <button onclick="window.location.href='index.html'" style="margin-top: 10px;">⬅️ Back to Main Menu</button>
 
   <div id="output">Your AI response will appear here.</div>
 
   <script>
-    // Submit question on Enter key
     document.getElementById('userInput').addEventListener('keydown', function(event) {
       if (event.key === 'Enter' && !event.shiftKey) {
         event.preventDefault();
         sendQuestion();
       }
     });
-
-    function goToMainMenu() {
-      window.location.href = 'index.html';
-    }
 
     async function sendQuestion() {
       const inputField = document.getElementById('userInput');
@@ -88,32 +73,31 @@
 
       outputDiv.innerText = "🔄 Thinking... Please wait.";
 
-      // Read medications from Local Storage (key: 'medicationsList')
-      let medications = [];
+      let medications = [], healthRecords = {};
       try {
         const storedMeds = localStorage.getItem('medicationsList');
-        if (storedMeds) {
-          medications = JSON.parse(storedMeds);
-        }
-      } catch (err) {
-        console.error("Error parsing medications from Local Storage:", err);
-      }
+        if (storedMeds) medications = JSON.parse(storedMeds);
+      } catch (e) {}
+
+      try {
+        const storedHR = localStorage.getItem('healthRecords');
+        if (storedHR) healthRecords = JSON.parse(storedHR);
+      } catch (e) {}
 
       const requestBody = {
         user_question: userInput,
-        medications: medications
+        medications: medications,
+        health_records: healthRecords
       };
 
       try {
-        const response = await fetch('https://seniors-meds-2.onrender.com/ask-openai', {
+        const response = await fetch('https://your-render-url.onrender.com/ask-openai', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(requestBody)
         });
 
-        if (!response.ok) {
-          throw new Error("Server returned an error.");
-        }
+        if (!response.ok) throw new Error("Server returned an error.");
 
         const answer = await response.json();
         outputDiv.innerText = answer.reply || "⚠️ No reply received.";
