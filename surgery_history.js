@@ -1,3 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>SMA Dashboard</title>
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    /* Basic styles for tabs and content */
+    body {
+      font-family: Arial, sans-serif;
+    }
+
+    .tab {
+      overflow: hidden;
+      border-bottom: 1px solid #ccc;
+      background-color: #f1f1f1;
+    }
+
+    .tab button {
+      background-color: inherit;
+      float: left;
+      border: none;
+      outline: none;
+      cursor: pointer;
+      padding: 14px 16px;
+      transition: 0.3s;
+      font-size: 17px;
+    }
+
+    .tab button:hover {
+      background-color: #ddd;
+    }
+
+    .tab button.active {
+      background-color: #ccc;
+    }
+
+    .tabcontent {
+      display: none;
+      padding: 20px;
+      border: 1px solid #ccc;
+      border-top: none;
+    }
+
+    iframe {
+      width: 100%;
+      height: 600px;
+      border: none;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>SMA Dashboard</h1>
+
+  <div class="tab">
+    <button class="tablinks" onclick="openModule(event, 'HealthRecords')">Health Records</button>
+    <button class="tablinks" onclick="openModule(event, 'Medications')">Medications</button>
+    <button class="tablinks" onclick="openModule(event, 'SurgeryHistory')">Surgery History</button>
+  </div>
+
+  <div id="HealthRecords" class="tabcontent">
+    <iframe src="SMA_Health_Records.html" title="Health Records Module"></iframe>
+  </div>
+
+  <div id="Medications" class="tabcontent">
+    <iframe src="SMA_Medications.html" title="Medications Module"></iframe>
+  </div>
+
+  <div id="SurgeryHistory" class="tabcontent">
+    <iframe src="SMA_Surgery_History.html" title="Surgery History Module"></iframe>
+  </div>
+
+  <script>
+    function openModule(evt, moduleName) {
+      var i, tabcontent, tablinks;
+
+      // Hide all tab contents
+      tabcontent = document.getElementsByClassName("tabcontent");
+      for (i = 0; i < tabcontent.length; i++) {
+        tabcontent[i].style.display = "none";
+      }
+
+      // Remove 'active' class from all tabs
+      tablinks = document.getElementsByClassName("tablinks");
+      for (i = 0; i < tablinks.length; i++) {
+        tablinks[i].className = tablinks[i].className.replace(" active", "");
+      }
+
+      // Show the selected tab content and set the tab to active
+      document.getElementById(moduleName).style.display = "block";
+      evt.currentTarget.className += " active";
+    }
+
+    // Optionally, open the first tab by default
+    document.addEventListener("DOMContentLoaded", function() {
+      document.querySelector(".tablinks").click();
+    });
+  </script>
+
+</body>
+</html>
 const SURGERY_HISTORY_KEY = 'surgeryHistory';
 let surgeries = [];
 
