@@ -44,9 +44,10 @@
 </head>
 <body>
 
-  <h1>SMA Dashboard</h1>
+  <h1>Welcome to the Medical Assistance Application</h1>
 
   <div class="tab">
+    <button class="tablinks" onclick="openModule(event, 'Home')">Home</button>
     <button class="tablinks" onclick="openModule(event, 'ReviewEditHealthRecords')">Review/Edit Health Records</button>
     <button class="tablinks" onclick="openModule(event, 'AddHealthRecord')">Add Health Record</button>
     <button class="tablinks" onclick="openModule(event, 'ReviewEditMedications')">Review/Edit Medications</button>
@@ -54,6 +55,11 @@
     <button class="tablinks" onclick="openModule(event, 'SurgeryHistory')">Surgery History</button>
     <button class="tablinks" onclick="openModule(event, 'AskAI')">Ask AI About My Medications and Health</button>
     <button class="tablinks" onclick="openModule(event, 'Settings')">Settings</button>
+  </div>
+
+  <div id="Home" class="tabcontent">
+    <h2>Welcome to the Medical Assistance Application</h2>
+    <p>Please select an option from the tabs above.</p>
   </div>
 
   <div id="ReviewEditHealthRecords" class="tabcontent">
@@ -88,24 +94,20 @@
     function openModule(evt, moduleName) {
       var i, tabcontent, tablinks;
 
-      // Hide all tab contents
       tabcontent = document.getElementsByClassName("tabcontent");
       for (i = 0; i < tabcontent.length; i++) {
         tabcontent[i].style.display = "none";
       }
 
-      // Remove 'active' class from all tabs
       tablinks = document.getElementsByClassName("tablinks");
       for (i = 0; i < tablinks.length; i++) {
         tablinks[i].className = tablinks[i].className.replace(" active", "");
       }
 
-      // Show the selected tab content and set the tab to active
       document.getElementById(moduleName).style.display = "block";
       evt.currentTarget.className += " active";
     }
 
-    // Open the first tab by default on page load
     document.addEventListener("DOMContentLoaded", function() {
       document.querySelector(".tablinks").click();
     });
