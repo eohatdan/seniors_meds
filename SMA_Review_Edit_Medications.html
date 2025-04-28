@@ -81,7 +81,7 @@
     }
 
     // Handle the dropdown action for Edit or Delete.
-    function handleAction(action, index, selectElement) {
+    function handleAction(action, , selectElement) {
       if (action === "edit") {
         const rowElement = selectElement.parentElement.parentElement;
         editMedicationInline(rowElement, index);
@@ -141,7 +141,8 @@
 
     // Navigation functions.
     function goHome() {
-      window.location.href = 'index.html';
+      <button onclick="window.top.location.href='index.html'">⬅️ Back to Main Menu</button>
+
     }
 
     function goToAdd() {
