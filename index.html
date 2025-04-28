@@ -44,8 +44,6 @@
 </head>
 <body>
 
-  <h1>Welcome to the Medical Assistance Application</h1>
-
   <div class="tab">
     <button class="tablinks" onclick="openModule(event, 'Home')">Home</button>
     <button class="tablinks" onclick="openModule(event, 'ReviewEditHealthRecords')">Review/Edit Health Records</button>
@@ -60,7 +58,7 @@
 
   <div id="Home" class="tabcontent">
     <h2>Welcome to the Medical Assistance Application</h2>
-    <p>Please select an option from the tabs above.</p>
+    <p>Please select an option from the tabs above to manage your medications, health records, surgeries, or interact with the AI Assistant.</p>
   </div>
 
   <div id="ReviewEditHealthRecords" class="tabcontent">
@@ -84,9 +82,8 @@
   </div>
 
   <div id="AddSurgery" class="tabcontent">
-  <iframe src="SMA_Add_Surgeries.html" title="Add Surgery Module"></iframe>
-</div>
-
+    <iframe src="SMA_Add_Surgeries.html" title="Add Surgery Module"></iframe>
+  </div>
 
   <div id="AskAI" class="tabcontent">
     <iframe src="SMA_AI_Meds_Agent.html" title="AI Assistant Module"></iframe>
