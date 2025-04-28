@@ -1,0 +1,48 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>SMA Dashboard</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<div class="tab">
+  <button class="tablinks" onclick="openModule(event, 'Home')">Home</button>
+  <button class="tablinks" onclick="openModule(event, 'ReviewEditHealthRecords')">Review/Edit Health Records</button>
+  <button class="tablinks" onclick="openModule(event, 'AddHealthRecord')">Add Health Record</button>
+  <button class="tablinks" onclick="openModule(event, 'ReviewEditMedications')">Review/Edit Medications</button>
+  <button class="tablinks" onclick="openModule(event, 'AddMedications')">Add Medications</button>
+  <button class="tablinks" onclick="openModule(event, 'SurgeryHistory')">Surgery History</button>
+  <button class="tablinks" onclick="openModule(event, 'AddSurgery')">Add Surgery</button>
+  <button class="tablinks" onclick="openModule(event, 'AskAI')">Ask AI About My Medications and Health</button>
+  <button class="tablinks" onclick="openModule(event, 'Settings')">Settings</button>
+</div>
+
+<div id="Home" class="tabcontent">
+  <h2>Welcome to the Medical Assistance Application</h2>
+  <p>Please select an option from the tabs above to manage your medications, health records, surgeries, or interact with the AI Assistant.</p>
+</div>
+
+<script>
+function openModule(evt, moduleName) {
+  var i, tabcontent, tablinks;
+  tabcontent = document.getElementsByClassName("tabcontent");
+  for (i = 0; i < tabcontent.length; i++) {
+    tabcontent[i].style.display = "none";
+  }
+  tablinks = document.getElementsByClassName("tablinks");
+  for (i = 0; i < tablinks.length; i++) {
+    tablinks[i].className = tablinks[i].className.replace(" active", "");
+  }
+  document.getElementById(moduleName).style.display = "block";
+  evt.currentTarget.className += " active";
+}
+document.addEventListener("DOMContentLoaded", function() {
+  document.querySelector(".tablinks").click();
+});
+</script>
+
+</body>
+</html>
