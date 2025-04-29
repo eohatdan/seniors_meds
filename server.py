@@ -1,83 +1,57 @@
+import os
+import json
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import openai
-import os
-import sys
+
+openai.api_key = os.getenv("OPENAI_API_KEY")
 
 app = Flask(__name__)
 CORS(app)
-
-client = openai.OpenAI(
-    api_key=os.getenv("OPENAI_API_KEY_NEW"),
-    base_url="https://api.openai.com/v1"
-)
-
-def compose_refined_prompt(user_question, medications, health_records):
-    meds_text = "\n".join(f"- {m['medication']} {m['dosage']}" for m in medications)
-
-    conditions = health_records.get("conditions", [])
-    allergies = health_records.get("allergies", [])
-    notes = health_records.get("notes", "")
-
-    conditions_text = "\n".join(f"- {c}" for c in conditions)
-    allergies_text = "\n".join(f"- {a}" for a in allergies)
-
-    return f"""
-You are a careful and helpful medical assistant.
-
-Please use the following information to answer the user's question. Be sure to state clearly that you reviewed both their medications and health records before responding.
-
-Current Medications:
-{meds_text or 'None'}
-
-Medical Conditions:
-{conditions_text or 'None'}
-
-Allergies:
-{allergies_text or 'None'}
-
-Additional Notes:
-{notes or 'None'}
-
-The user asked:
-"{user_question}"
-
-Please consider all the above data and answer safely, clearly, and in patient-friendly language.
-""".strip()
 
 @app.route('/ask-openai', methods=['POST'])
 def ask_openai():
     try:
         data = request.get_json()
-        user_question = data.get('user_question')
-        medications = data.get('medications', [])
-        health_records = data.get('health_records', {})
 
-        print("Received question:", user_question)
-        print("Meds:", medications)
-        print("Health records:", health_records)
-        sys.stdout.flush()
+        user_question = data.get("user_question", "")
+        medications = data.get("medications", [])
+        healthRecords = data.get("healthRecords", [])
+        surgeryHistory = data.get("surgeryHistory", [])
 
-        refined_prompt = compose_refined_prompt(user_question, medications, health_records)
+        # Compose refined prompt
+        refined_prompt = f"""
+The user asked: {user_question}
 
-        response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[
-                {"role": "system", "content": "You are a careful and helpful medical assistant."},
-                {"role": "user", "content": refined_prompt}
-            ],
-            temperature=0.85
+Consider their current medications:
+{json.dumps(medications, indent=2)}
+
+Consider their health records:
+{json.dumps(healthRecords, indent=2)}
+
+Consider their surgery history:
+{json.dumps(surgeryHistory, indent=2)}
+
+Using this information, provide a helpful, safe, and medically-informed answer. 
+Clearly state that medications, health records, and surgery history were considered.
+"""
+
+        # Send to OpenAI
+        response = openai.chat.completions.create(
+            model="gpt-4-turbo",
+            messages=[{"role": "user", "content": refined_prompt}],
+            max_tokens=800,
+            temperature=0.5,
         )
 
-        return jsonify({"reply": response.choices[0].message.content})
-    except Exception as e:
-        print("Error:", e)
-        sys.stdout.flush()
-        return jsonify({"error": str(e)}), 500
+        ai_response = response.choices[0].message.content.strip()
 
-@app.route('/')
-def home():
-    return "SMA AI Meds Agent with Health Records is running."
+        return jsonify({"response": ai_response})
+
+    except Exception as e:
+        print(f"Error occurred: {e}")
+        return jsonify({"response": "❗ Error contacting OpenAI."}), 500
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 5000)), debug=True, threaded=True)
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host="0.0.0.0", port=port)
