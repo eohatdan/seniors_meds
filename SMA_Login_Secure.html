@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>SMA Secure Login</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+  <style>
+    body { font-family: Arial; max-width: 400px; margin: auto; padding: 20px; }
+    input, button { width: 100%; padding: 10px; margin: 10px 0; }
+    button { background-color: #2e7d32; color: white; border: none; cursor: pointer; }
+    button:hover { background-color: #1b5e20; }
+    #output { margin-top: 20px; white-space: pre-wrap; }
+  </style>
+</head>
+<body>
+  <h2>Senior Medications App Login</h2>
+  <input type="email" id="email" placeholder="Email">
+  <input type="password" id="password" placeholder="Password">
+  <button onclick="login()">Login</button>
+  <div id="output"></div>
+
+  <script>
+    const SUPABASE_URL = 'https://your-project.supabase.co';
+    const SUPABASE_ANON_KEY = 'your-anon-key';
+    const BACKEND_URL = 'https://your-backend.onrender.com';
+
+    const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    let accessToken = "";
+
+    async function login() {
+      const email = document.getElementById("email").value;
+      const password = document.getElementById("password").value;
+      const output = document.getElementById("output");
+
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+
+      if (error) {
+        output.textContent = "❌ Login failed: " + error.message;
+        return;
+      }
+
+      accessToken = data.session.access_token;
+      output.textContent = "✅ Logged in!\n\nFetching medications from server...";
+
+      fetch(`${BACKEND_URL}/get-medications`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${accessToken}`
+        }
+      })
+      .then(res => res.json())
+      .then(data => {
+        output.textContent = "Medications:\n" + JSON.stringify(data, null, 2);
+      })
+      .catch(err => {
+        output.textContent = "Error fetching medications:\n" + err;
+      });
+    }
+  </script>
+</body>
+</html>
