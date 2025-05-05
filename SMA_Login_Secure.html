@@ -47,16 +47,16 @@
   <div id="output"></div>
 
   <script>
-    const SUPABASE_URL = 'https://ixxzxenspwzrkiazepbj.supabase.co';       // Replace with your Supabase project URL
-    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml4eHp4ZW5zcHd6cmtpYXplcGJqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM1MzE1NjMsImV4cCI6MjA1OTEwNzU2M30.28E41uParU4YMisV-Kxlq1KybbOdRrbKqXYKrH84COw';                     // Replace with your Supabase anon/public key
-    const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const SUPABASE_URL = 'https://your-project.supabase.co';
+    const SUPABASE_ANON_KEY = 'your-anon-key';
+    const client = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);  // safer name
 
     async function login() {
       const email = document.getElementById("email").value;
       const password = document.getElementById("password").value;
       const output = document.getElementById("output");
 
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      const { data, error } = await client.auth.signInWithPassword({ email, password });
 
       if (error) {
         output.textContent = "❌ Login failed: " + error.message;
@@ -79,7 +79,7 @@
       const password = document.getElementById("password").value;
       const output = document.getElementById("output");
 
-      const { data, error } = await supabase.auth.signUp({ email, password });
+      const { data, error } = await client.auth.signUp({ email, password });
 
       if (error) {
         output.textContent = "❌ Sign-up error: " + error.message;
