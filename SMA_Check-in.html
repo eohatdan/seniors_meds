@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>SMA Check-in</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+</head>
+<body>
+  <h1>SMA Check-in</h1>
+
+  <label>Full Name:</label>
+  <input type="text" id="full_name" required><br><br>
+
+  <label>Date of Birth:</label>
+  <input type="date" id="dob" required><br><br>
+
+  <label>Role:</label>
+  <select id="role">
+    <option value="patient">Patient</option>
+    <option value="caregiver">Caregiver</option>
+    <option value="coordinator">Care Coordinator</option>
+  </select><br><br>
+
+  <button onclick="submitCheckIn()">Submit</button>
+  <div id="status"></div>
+
+  <script>
+    const supabase = supabase.createClient(
+      'https://ixxzxenspwzrkiazepbj.supabase.co',
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml4eHp4ZW5zcHd6cmtpYXplcGJqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM1MzE1NjMsImV4cCI6MjA1OTEwNzU2M30.28E41uParU4YMisV-Kxlq1KybbOdRrbKqXYKrH84COw'
+    );
+
+    async function submitCheckIn() {
+      const fullName = document.getElementById("full_name").value;
+      const dob = document.getElementById("dob").value;
+      const role = document.getElementById("role").value;
+      const status = document.getElementById("status");
+
+      const { data: userData, error: userError } = await supabase.auth.getUser();
+
+      if (userError || !userData?.user) {
+        status.textContent = "❌ Failed to get current user.";
+        return;
+      }
+
+      const userId = userData.user.id;
+      const email = userData.user.email;
+
+      const { error: insertError } = await supabase
+        .from('profiles')
+        .insert([{ id: userId, email, full_name: fullName, dob, role }]);
+
+      if (insertError) {
+        status.textContent = "❌ Profile insert error: " + insertError.message;
+      } else {
+        status.style.color = "green";
+        status.textContent = "✅ Check-in complete. Redirecting to app...";
+        setTimeout(() => {
+          window.location.href = "index.html";  // Main app page
+        }, 1500);
+      }
+    }
+  </script>
+</body>
+</html>
