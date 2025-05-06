@@ -14,23 +14,22 @@
   <input type="password" id="password" required><br><br>
 
   <button onclick="signup()">Sign Up</button>
+  <button onclick="login()">Log In</button>
+
   <div id="output"></div>
 
   <script>
-    const supabase = supabase.createClient(
+    const client = supabase.createClient(
       'https://ixxzxenspwzrkiazepbj.supabase.co',
       'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml4eHp4ZW5zcHd6cmtpYXplcGJqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM1MzE1NjMsImV4cCI6MjA1OTEwNzU2M30.28E41uParU4YMisV-Kxlq1KybbOdRrbKqXYKrH84COw'
-      );
+    );
 
     async function signup() {
       const email = document.getElementById("email").value;
       const password = document.getElementById("password").value;
       const output = document.getElementById("output");
 
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password
-      });
+      const { data, error } = await client.auth.signUp({ email, password });
 
       if (error) {
         output.textContent = "❌ Sign-up error: " + error.message;
@@ -38,11 +37,28 @@
       }
 
       output.style.color = "green";
-      output.textContent = "✅ Sign-up complete. Redirecting to check-in...";
-
-      // Wait a bit then redirect
+      output.textContent = "✅ Sign-up complete. Redirecting...";
       setTimeout(() => {
         window.location.href = "SMA_Check-in.html";
+      }, 1500);
+    }
+
+    async function login() {
+      const email = document.getElementById("email").value;
+      const password = document.getElementById("password").value;
+      const output = document.getElementById("output");
+
+      const { data, error } = await client.auth.signInWithPassword({ email, password });
+
+      if (error) {
+        output.textContent = "❌ Login error: " + error.message;
+        return;
+      }
+
+      output.style.color = "green";
+      output.textContent = "✅ Login successful. Redirecting...";
+      setTimeout(() => {
+        window.location.href = "index.html";
       }, 1500);
     }
   </script>
