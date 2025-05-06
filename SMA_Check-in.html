@@ -24,7 +24,7 @@
   <div id="status"></div>
 
   <script>
-    const supabase = supabase.createClient(
+    const client = supabase.createClient(
       'https://ixxzxenspwzrkiazepbj.supabase.co',
       'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml4eHp4ZW5zcHd6cmtpYXplcGJqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM1MzE1NjMsImV4cCI6MjA1OTEwNzU2M30.28E41uParU4YMisV-Kxlq1KybbOdRrbKqXYKrH84COw'
     );
@@ -35,7 +35,7 @@
       const role = document.getElementById("role").value;
       const status = document.getElementById("status");
 
-      const { data: userData, error: userError } = await supabase.auth.getUser();
+      const { data: userData, error: userError } = await client.auth.getUser();
 
       if (userError || !userData?.user) {
         status.textContent = "❌ Failed to get current user.";
@@ -45,7 +45,7 @@
       const userId = userData.user.id;
       const email = userData.user.email;
 
-      const { error: insertError } = await supabase
+      const { error: insertError } = await client
         .from('profiles')
         .insert([{ id: userId, email, full_name: fullName, dob, role }]);
 
