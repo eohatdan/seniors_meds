@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>SMA Secure Login</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+</head>
+<body>
+  <h1>SMA Secure Login</h1>
+
+  <label>Email:</label>
+  <input type="email" id="email" required><br><br>
+
+  <label>Password:</label>
+  <input type="password" id="password" required><br><br>
+
+  <button onclick="signup()">Sign Up</button>
+  <div id="output"></div>
+
+  <script>
+    const supabase = supabase.createClient(
+      'https://ixxzxenspwzrkiazepbj.supabase.co',
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml4eHp4ZW5zcHd6cmtpYXplcGJqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM1MzE1NjMsImV4cCI6MjA1OTEwNzU2M30.28E41uParU4YMisV-Kxlq1KybbOdRrbKqXYKrH84COw'
+      );
+
+    async function signup() {
+      const email = document.getElementById("email").value;
+      const password = document.getElementById("password").value;
+      const output = document.getElementById("output");
+
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password
+      });
+
+      if (error) {
+        output.textContent = "❌ Sign-up error: " + error.message;
+        return;
+      }
+
+      output.style.color = "green";
+      output.textContent = "✅ Sign-up complete. Redirecting to check-in...";
+
+      // Wait a bit then redirect
+      setTimeout(() => {
+        window.location.href = "SMA_Check-in.html";
+      }, 1500);
+    }
+  </script>
+</body>
+</html>
