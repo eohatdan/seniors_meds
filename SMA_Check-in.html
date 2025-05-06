@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Check-In | SMA App</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 2em;
+    }
+    input, select {
+      margin-bottom: 1em;
+      display: block;
+    }
+    #patient-details {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <h1>Senior Medical Assistant - Check-In</h1>
+
+  <label>Full Name:</label>
+  <input type="text" id="fullName" required>
+
+  <label>Email:</label>
+  <input type="email" id="email" required>
+
+  <label>DOB (YYYY-MM-DD):</label>
+  <input type="date" id="dob" required>
+
+  <label>Role:</label>
+  <select id="role" onchange="togglePatientFields()">
+    <option value="patient">Patient</option>
+    <option value="caregiver">Caregiver</option>
+    <option value="care_coordinator">Care Coordinator</option>
+  </select>
+
+  <div id="patient-details">
+    <h3>Patient Information (for caregivers/coordinators)</h3>
+    <label>Patient Full Name:</label>
+    <input type="text" id="patientFullName">
+    
+    <label>Patient Email:</label>
+    <input type="email" id="patientEmail">
+
+    <label>Patient DOB (YYYY-MM-DD):</label>
+    <input type="date" id="patientDob">
+  </div>
+
+  <button onclick="checkIn()">Submit</button>
+  <p id="output"></p>
+
+  <script>
+    // ✅ Initialize Supabase client
+    const client = supabase.createClient("YOUR_SUPABASE_URL", "YOUR_SUPABASE_ANON_KEY");
+
+    function togglePatientFields() {
+      const role = document.getElementById("role").value;
+      document.getElementById("patient-details").style.display = 
+        (role === "caregiver" || role === "care_coordinator") ? "block" : "none";
+    }
+
+    async function checkIn() {
+      const fullName = document.getElementById("fullName").value;
+      const email = document.getElementById("email").value;
+      const dob = document.getElementById("dob").value;
+      const role = document.getElementById("role").value;
+      const output = document.getElementById("output");
+
+      const { data: userInfo, error: userError } = await client.auth.getUser();
+      if (userError || !userInfo?.user?.id) {
+        output.textContent = "❌ Unable to get current user ID.";
+        return;
+      }
+
+      const userUUID = userInfo.user.id;
+
+      if (role === "patient") {
+        // Insert into patients table
+        const { error: insertError } = await client.from("patients").insert([{
+          id: userUUID,
+          email: email,
+          full_name: fullName,
+          dob: dob
+        }]);
+
+        if (insertError) {
+          output.textContent = "❌ Error inserting patient: " + insertError.message;
+          return;
+        }
+
+        localStorage.setItem("patientUUID", userUUID);
+        output.textContent = "✅ Patient registered!";
+      } else {
+        // Get patient email to look up UUID
+        const patientEmail = document.getElementById("patientEmail").value;
+
+        const { data: patientData, error: patientLookupError } = await client
+          .from("patients")
+          .select("id")
+          .eq("email", patientEmail)
+          .limit(1);
+
+        if (patientLookupError || patientData.length === 0) {
+          output.textContent = "❌ Patient not found.";
+          return;
+        }
+
+        const patientUUID = patientData[0].id;
+
+        // Insert into care_teams table
+        const { error: careTeamError } = await client.from("care_teams").insert([{
+          patient_id: patientUUID,
+          caregiver_id: userUUID,
+          role: role,
+          can_view_medications: true,
+          can_view_health_records: true,
+          can_edit_notes: true
+        }]);
+
+        if (careTeamError) {
+          output.textContent = "❌ Error inserting into care team: " + careTeamError.message;
+          return;
+        }
+
+        localStorage.setItem("patientUUID", patientUUID);
+        output.textContent = "✅ Care relationship established!";
+      }
+
+      // Redirect to main menu
+      setTimeout(() => {
+        window.location.href = "index.html";
+      }, 1500);
+    }
+  </script>
+</body>
+</html>
