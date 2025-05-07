@@ -95,7 +95,7 @@
       } else {
         // Get patient email to look up UUID
         const patientEmail = document.getElementById("patientEmail").value;
-
+        console.log("Patient email ",patientEmail);
         const { data: patientData, error: patientLookupError } = await client
           .from("patients")
           .select("id")
