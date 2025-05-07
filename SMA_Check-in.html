@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Check-In | SMA App</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 2em; }
+    input, select { margin-bottom: 1em; display: block; }
+    #patient-details { display: none; }
+  </style>
+</head>
+<body>
+  <h1>Senior Medical Assistant - Check-In</h1>
+
+  <label>Full Name:</label>
+  <input type="text" id="fullName" required>
+
+  <label>Email:</label>
+  <input type="email" id="email" required>
+
+  <label>DOB (YYYY-MM-DD):</label>
+  <input type="date" id="dob" required>
+
+  <label>Role:</label>
+  <select id="role" onchange="togglePatientFields()">
+    <option value="patient">Patient</option>
+    <option value="caregiver">Caregiver</option>
+    <option value="care_coordinator">Care Coordinator</option>
+  </select>
+
+  <div id="patient-details">
+    <h3>Patient Information (for caregivers/coordinators)</h3>
+    <label>Patient Email:</label>
+    <input type="email" id="patientEmail">
+
+    <label>Patient DOB (YYYY-MM-DD):</label>
+    <input type="date" id="patientDob">
+
+    <label>Permissions:</label><br>
+    <input type="checkbox" id="permMeds"> View Medications<br>
+    <input type="checkbox" id="permHealth"> View Health Records<br>
+    <input type="checkbox" id="permNotes"> Edit Notes<br>
+  </div>
+
+  <button onclick="checkIn()">Submit</button>
+  <p id="output"></p>
+
+  <script>
+    const client = supabase.createClient('https://ixxzxenspwzrkiazepbj.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml4eHp4ZW5zcHd6cmtpYXplcGJqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM1MzE1NjMsImV4cCI6MjA1OTEwNzU2M30.28E41uParU4YMisV-Kxlq1KybbOdRrbKqXYKrH84COw');
+
+    function togglePatientFields() {
+      const role = document.getElementById("role").value;
+      document.getElementById("patient-details").style.display = 
+        (role === "caregiver" || role === "care_coordinator") ? "block" : "none";
+    }
+
+    async function checkIn() {
+      const fullName = document.getElementById("fullName").value;
+      const email = document.getElementById("email").value.toLowerCase();
+      const dob = document.getElementById("dob").value;
+      const role = document.getElementById("role").value;
+      const output = document.getElementById("output");
+
+      const { data: authUser, error: authError } = await client.auth.getUser();
+      if (authError || !authUser?.user?.id) {
+        output.textContent = "❌ Unable to fetch user ID.";
+        return;
+      }
+
+      const userUUID = authUser.user.id;
+
+      // 🧠 Upsert into profiles
+      const { error: profileError } = await client
+        .from("profiles")
+        .upsert([{ id: userUUID, email, full_name: fullName, dob, role }]);
+
+      if (profileError) {
+        output.textContent = "❌ Error updating profile: " + profileError.message;
+        return;
+      }
+
+      if (role === "patient") {
+        // ⛑️ Ensure patient is added to patients table too
+        const { error: patientError } = await client
+          .from("patients")
+          .upsert([{ id: userUUID, email, full_name: fullName, dob }]);
+
+        if (patientError) {
+          output.textContent = "❌ Error updating patient: " + patientError.message;
+          return;
+        }
+
+        localStorage.setItem("patientUUID", userUUID);
+        output.textContent = "✅ Check-in complete (Patient). Redirecting...";
+      } else {
+        // 🔍 Look up patient's UUID
+        const patientEmail = document.getElementById("patientEmail").value.toLowerCase();
+        const { data: patientData, error: lookupError } = await client
+          .from("patients")
+          .select("id")
+          .eq("email", patientEmail)
+          .maybeSingle();
+
+        if (lookupError || !patientData?.id) {
+          output.textContent = "❌ Patient not found or not accessible.";
+          return;
+        }
+
+        const patientUUID = patientData.id;
+
+        const permissions = {
+          can_view_medications: document.getElementById("permMeds").checked,
+          can_view_health_records: document.getElementById("permHealth").checked,
+          can_edit_notes: document.getElementById("permNotes").checked
+        };
+
+        const { error: careError } = await client
+          .from("care_teams")
+          .upsert([{ 
+            patient_id: patientUUID,
+            caregiver_id: userUUID,
+            role,
+            ...permissions
+          }]);
+
+        if (careError) {
+          output.textContent = "❌ Failed to register caregiver link: " + careError.message;
+          return;
+        }
+
+        localStorage.setItem("patientUUID", patientUUID);
+        output.textContent = "✅ Caregiver linked to patient. Redirecting...";
+      }
+
+      setTimeout(() => {
+        window.location.href = "index.html";
+      }, 1500);
+    }
+  </script>
+</body>
+</html>
