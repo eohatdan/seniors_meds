@@ -113,20 +113,29 @@
           can_view_health_records: document.getElementById("permHealth").checked,
           can_edit_notes: document.getElementById("permNotes").checked
         };
+        console.log("Inserting into care_teams:", {
+        caregiver_id: userUUID,
+        patient_id: patientUUID,
+        role,
+        ...permissions
+        });
 
         const { error: careError } = await client
-          .from("care_teams")
-          .upsert([{ 
-            patient_id: patientUUID,
-            caregiver_id: userUUID,
-            role,
-            ...permissions
+        .from("care_teams")
+        .insert([{ 
+          patient_id: patientUUID,
+          caregiver_id: userUUID,
+          role,
+          ...permissions
           }]);
 
+
         if (careError) {
-          output.textContent = "❌ Failed to register caregiver link: " + careError.message;
-          return;
+            console.error("❌ Insert failed:", careError.message);
+            output.textContent = "❌ Failed to register caregiver link: " + careError.message;
+            return;
         }
+
 
         localStorage.setItem("patientUUID", patientUUID);
         output.textContent = "✅ Caregiver linked to patient. Redirecting...";
