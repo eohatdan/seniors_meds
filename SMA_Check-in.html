@@ -79,16 +79,28 @@
         return;
       }
 
-      if (role === "patient") {
-        // ⛑️ Ensure patient is added to patients table too
-        const { error: patientError } = await client
-          .from("patients")
-          .upsert([{ id: userUUID, email, full_name: fullName, dob }]);
+     if (role === "patient") {
+  // Check if patient already exists
+  const { data: existingPatient, error: patientCheckErr } = await client
+    .from("patients")
+    .select("id")
+    .eq("id", userUUID)
+    .maybeSingle();
 
-        if (patientError) {
-          output.textContent = "❌ Error updating patient: " + patientError.message;
-          return;
-        }
+  if (!existingPatient) {
+    const { error: patientInsertErr } = await client
+      .from("patients")
+      .insert([{ id: userUUID, email, full_name: fullName, dob }]);
+
+    if (patientInsertErr) {
+      output.textContent = "❌ Error inserting into patients table: " + patientInsertErr.message;
+      return;
+    }
+  }
+
+  localStorage.setItem("patientUUID", userUUID);
+  output.textContent = "✅ Check-in complete (Patient). Redirecting...";
+}
 
         localStorage.setItem("patientUUID", userUUID);
         output.textContent = "✅ Check-in complete (Patient). Redirecting...";
