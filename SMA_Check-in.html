@@ -97,14 +97,9 @@
       return;
     }
   }
-
-  localStorage.setItem("patientUUID", userUUID);
-  output.textContent = "✅ Check-in complete (Patient). Redirecting...";
-
-
         localStorage.setItem("patientUUID", userUUID);
         output.textContent = "✅ Check-in complete (Patient). Redirecting...";
-      } else {
+     
         // 🔍 Look up patient's UUID
         const patientEmail = document.getElementById("patientEmail").value.toLowerCase();
         const { data: patientData, error: lookupError } = await client
