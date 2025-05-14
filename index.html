@@ -94,6 +94,29 @@
   </div>
 
   <script>
+    
+  const client = supabase.createClient('https://ixxzxenspwzrkiazepbj.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml4eHp4ZW5zcHd6cmtpYXplcGJqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM1MzE1NjMsImV4cCI6MjA1OTEwNzU2M30.28E41uParU4YMisV-Kxlq1KybbOdRrbKqXYKrH84COw');
+
+  let timeout;
+
+  function resetTimer() {
+    clearTimeout(timeout);
+    timeout = setTimeout(() => {
+      alert("You have been signed out due to inactivity.");
+      client.auth.signOut().then(() => {
+        localStorage.clear(); // Optional: clear session data
+        window.location.href = "SMA_Secure_Login.html";
+      });
+    }, 60 * 60 * 1000); // 1 hour in milliseconds
+  }
+
+  // Reset timer on activity
+  window.onload = resetTimer;
+  window.onmousemove = resetTimer;
+  window.onkeydown = resetTimer;
+  window.onclick = resetTimer;
+
+
     function openModule(evt, moduleName) {
       var i, tabcontent, tablinks;
 
