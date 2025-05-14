@@ -107,8 +107,11 @@
           .select("id")
           .eq("email", patientEmail)
           .maybeSingle();
+       
 
         if (lookupError || !patientData?.id) {
+          console.log("Patient email: ",email);
+          console.log("Patient id: ",id);
           output.textContent = "❌ Patient not found or not accessible.";
           return;
         }
