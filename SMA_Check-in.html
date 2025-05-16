@@ -66,16 +66,26 @@
       }
 
       const userUUID = authUser.user.id;
-
-      // Upsert into profiles
-      const { error: profileError } = await client
+      // Check if user already exists in profiles
+      const { data: existingProfile, error: profileLookupError } = await client
         .from("profiles")
-        .upsert([{ id: userUUID, email, full_name: fullName, dob, role }]);
-
-      if (profileError) {
-        output.textContent = "❌ Error updating profile: " + profileError.message;
-        return;
+        .select("id")
+        .eq("id", userUUID)
+        .maybeSingle();
+      
+      if (!existingProfile) {
+        const { error: insertError } = await client
+          .from("profiles")
+          .insert([{ id: userUUID, email, full_name: fullName, dob, role }]);
+      
+        if (insertError) {
+          output.textContent = "❌ Error inserting into profiles: " + insertError.message;
+          return;
+        }
       }
+
+
+     
 
       if (role === "patient") {
         // Insert into patients table only if not already present
