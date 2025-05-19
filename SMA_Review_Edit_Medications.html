@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Review/Edit Medications</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 2em; }
+    .med-item { margin-bottom: 1em; }
+    .actions button { margin-right: 0.5em; }
+  </style>
+</head>
+<body>
+  <h2>Review or Edit Medications</h2>
+
+  <div id="medicationsContainer">Loading...</div>
+
+  <h3>Add Medication</h3>
+  <input type="text" id="medicationName" placeholder="Medication Name">
+  <input type="text" id="dosage" placeholder="Dosage">
+  <input type="text" id="times" placeholder="Times per day">
+  <button onclick="addMedication()">Add</button>
+
+  <p id="status"></p>
+  <button onclick="window.location.href='index.html'">Back to Main Menu</button>
+
+  <script>
+    const client = supabase.createClient('https://ixxzxenspwzrkiazepbj.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml4eHp4ZW5zcHd6cmtpYXplcGJqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM1MzE1NjMsImV4cCI6MjA1OTEwNzU2M30.28E41uParU4YMisV-Kxlq1KybbOdRrbKqXYKrH84COw');
+    const container = document.getElementById("medicationsContainer");
+    const status = document.getElementById("status");
+
+    async function loadMedications() {
+      const patientUUID = localStorage.getItem("patientUUID");
+      if (!patientUUID) {
+        container.innerHTML = "❌ No patient selected.";
+        return;
+      }
+
+      const { data, error } = await client
+        .from("medicationslist")
+        .select("*")
+        .eq("patient_id", patientUUID)
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        container.innerHTML = "❌ Error loading medications.";
+        console.error(error);
+        return;
+      }
+
+      if (data.length === 0) {
+        container.innerHTML = "No medications found.";
+        return;
+      }
+
+      container.innerHTML = "";
+      data.forEach((item) => {
+        const div = document.createElement("div");
+        div.className = "med-item";
+        div.innerHTML = `
+          <input type="text" value="${item.medication}" id="med-${item.id}">
+          <input type="text" value="${item.dosage}" id="dosage-${item.id}">
+          <input type="text" value="${item.times}" id="times-${item.id}">
+          <div class="actions">
+            <button onclick="updateMedication('${item.id}')">Update</button>
+            <button onclick="deleteMedication('${item.id}')">Delete</button>
+          </div>
+        `;
+        container.appendChild(div);
+      });
+    }
+
+    async function addMedication() {
+      const patientUUID = localStorage.getItem("patientUUID");
+      const medication = document.getElementById("medicationName").value.trim();
+      const dosage = document.getElementById("dosage").value.trim();
+      const times = document.getElementById("times").value.trim();
+
+      if (!medication) {
+        status.textContent = "❌ Medication name is required.";
+        return;
+      }
+
+      const { error } = await client.from("medicationslist").insert([{
+        patient_id: patientUUID,
+        medication,
+        dosage,
+        times
+      }]);
+
+      if (error) {
+        status.textContent = "❌ Failed to add medication: " + error.message;
+      } else {
+        status.textContent = "✅ Medication added.";
+        document.getElementById("medicationName").value = "";
+        document.getElementById("dosage").value = "";
+        document.getElementById("times").value = "";
+        loadMedications();
+      }
+    }
+
+    async function updateMedication(id) {
+      const medication = document.getElementById(`med-${id}`).value.trim();
+      const dosage = document.getElementById(`dosage-${id}`).value.trim();
+      const times = document.getElementById(`times-${id}`).value.trim();
+
+      const { error } = await client
+        .from("medicationslist")
+        .update({ medication, dosage, times })
+        .eq("id", id);
+
+      status.textContent = error ? "❌ Update failed: " + error.message : "✅ Medication updated.";
+    }
+
+    async function deleteMedication(id) {
+      const { error } = await client
+        .from("medicationslist")
+        .delete()
+        .eq("id", id);
+
+      if (error) {
+        status.textContent = "❌ Delete failed: " + error.message;
+      } else {
+        status.textContent = "✅ Medication deleted.";
+        loadMedications();
+      }
+    }
+
+    loadMedications();
+  </script>
+</body>
+</html>
