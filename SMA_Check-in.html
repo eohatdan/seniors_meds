@@ -134,12 +134,13 @@
 
         const { error: careError } = await client
           .from("care_teams")
-          .insert([{
+          .upsert([{
             patient_id: patientUUID,
             caregiver_id: userUUID,
             role,
             ...permissions
-          }]);
+          }], { onConflict: ['patient_id', 'caregiver_id'] }); // <- assumes composite PK or unique constraint
+
 
         if (careError) {
           output.textContent = "❌ Failed to register caregiver link: " + careError.message;
