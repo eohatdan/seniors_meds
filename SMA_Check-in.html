@@ -29,10 +29,10 @@
   </select>
 
   <div id="patient-details">
-    <h3>Patient Information (for caregivers/coordinators)</h3>
+    <h3>Patient Info (for Caregivers/Coordinators)</h3>
     <label>Patient Email:</label>
     <input type="email" id="patientEmail">
-    <label>Patient DOB (YYYY-MM-DD):</label>
+    <label>Patient DOB (optional):</label>
     <input type="date" id="patientDob">
     <label>Permissions:</label><br>
     <input type="checkbox" id="permMeds"> View Medications<br>
@@ -44,7 +44,7 @@
   <p id="output"></p>
 
   <script>
-    const client = supabase.createClient('https://ixxzxenspwzrkiazepbj.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml4eHp4ZW5zcHd6cmtpYXplcGJqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM1MzE1NjMsImV4cCI6MjA1OTEwNzU2M30.28E41uParU4YMisV-Kxlq1KybbOdRrbKqXYKrH84COw');
+    const client = supabase.createClient("YOUR_SUPABASE_URL", "YOUR_ANON_KEY");
 
     function togglePatientFields() {
       const role = document.getElementById("role").value;
@@ -66,29 +66,27 @@
       }
 
       const userUUID = authUser.user.id;
-      // Check if user already exists in profiles
-      const { data: existingProfile, error: profileLookupError } = await client
+
+      // Check if user is already in profiles table
+      const { data: existingProfile } = await client
         .from("profiles")
         .select("id")
         .eq("id", userUUID)
         .maybeSingle();
-      
+
       if (!existingProfile) {
-        const { error: insertError } = await client
+        const { error: insertProfileError } = await client
           .from("profiles")
           .insert([{ id: userUUID, email, full_name: fullName, dob, role }]);
-      
-        if (insertError) {
-          output.textContent = "❌ Error inserting into profiles: " + insertError.message;
+
+        if (insertProfileError) {
+          output.textContent = "❌ Error inserting into profiles: " + insertProfileError.message;
           return;
         }
       }
 
-
-     
-
       if (role === "patient") {
-        // Insert into patients table only if not already present
+        // Register new patient if not already present
         const { data: existingPatient } = await client
           .from("patients")
           .select("id")
@@ -96,59 +94,77 @@
           .maybeSingle();
 
         if (!existingPatient) {
-          const { error: patientInsertError } = await client
+          const { error: insertPatientError } = await client
             .from("patients")
             .insert([{ id: userUUID, email, full_name: fullName, dob }]);
 
-          if (patientInsertError) {
-            output.textContent = "❌ Error inserting patient: " + patientInsertError.message;
+          if (insertPatientError) {
+            output.textContent = "❌ Error inserting into patients: " + insertPatientError.message;
             return;
           }
         }
 
         localStorage.setItem("patientUUID", userUUID);
-        output.textContent = "✅ Check-in complete (Patient). Redirecting...";
+        output.textContent = "✅ Patient check-in complete. Redirecting...";
         setTimeout(() => window.location.href = "index.html", 1500);
 
       } else {
-        // Caregiver or Coordinator
+        // Caregiver or Coordinator logic
         const patientEmail = document.getElementById("patientEmail").value.toLowerCase();
-        const { data: patientData, error: lookupError } = await client
+
+        const { data: patientData, error: patientLookupError } = await client
           .from("patients")
           .select("id")
           .eq("email", patientEmail)
           .maybeSingle();
 
-        if (lookupError || !patientData?.id) {
+        if (patientLookupError || !patientData?.id) {
           output.textContent = "❌ Patient not found or not accessible.";
           return;
         }
 
         const patientUUID = patientData.id;
 
-        const permissions = {
-          can_view_medications: document.getElementById("permMeds").checked,
-          can_view_health_records: document.getElementById("permHealth").checked,
-          can_edit_notes: document.getElementById("permNotes").checked
-        };
-
-        const { error: careError } = await client
+        // Check if caregiver is already linked to patient
+        const { data: existingLink, error: lookupError } = await client
           .from("care_teams")
-          .upsert([{
-            patient_id: patientUUID,
-            caregiver_id: userUUID,
-            role,
-            ...permissions
-          }], { onConflict: ['patient_id', 'caregiver_id'] }); // <- assumes composite PK or unique constraint
+          .select("id")
+          .eq("patient_id", patientUUID)
+          .eq("caregiver_id", userUUID)
+          .maybeSingle();
 
-
-        if (careError) {
-          output.textContent = "❌ Failed to register caregiver link: " + careError.message;
+        if (lookupError) {
+          output.textContent = "❌ Error checking caregiver link: " + lookupError.message;
           return;
         }
 
+        if (!existingLink) {
+          const permissions = {
+            can_view_medications: document.getElementById("permMeds").checked,
+            can_view_health_records: document.getElementById("permHealth").checked,
+            can_edit_notes: document.getElementById("permNotes").checked
+          };
+
+          const { error: insertCareError } = await client
+            .from("care_teams")
+            .insert([{
+              patient_id: patientUUID,
+              caregiver_id: userUUID,
+              role,
+              ...permissions
+            }]);
+
+          if (insertCareError) {
+            output.textContent = "❌ Failed to register caregiver link: " + insertCareError.message;
+            return;
+          }
+
+          output.textContent = "✅ Caregiver linked to patient. Redirecting...";
+        } else {
+          output.textContent = "✅ Caregiver already linked. Redirecting...";
+        }
+
         localStorage.setItem("patientUUID", patientUUID);
-        output.textContent = "✅ Caregiver linked to patient. Redirecting...";
         setTimeout(() => window.location.href = "index.html", 1500);
       }
     }
