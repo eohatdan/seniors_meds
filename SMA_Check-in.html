@@ -128,7 +128,7 @@ console.log("line 114");
         // Check if caregiver is already linked to patient
         const { data: existingLink, error: lookupError } = await client
           .from("care_teams")
-          .select("id")
+          .select("uuid")
           .eq("patient_id", patientUUID)
           .eq("caregiver_id", userUUID)
           .maybeSingle();
