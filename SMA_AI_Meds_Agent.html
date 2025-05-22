@@ -22,7 +22,7 @@ const SUPABASE_URL = 'https://ixxzxenspwzrkiazepbj.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml4eHp4ZW5zcHd6cmtpYXplcGJqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM1MzE1NjMsImV4cCI6MjA1OTEwNzU2M30.28E41uParU4YMisV-Kxlq1KybbOdRrbKqXYKrH84COw';
 const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 const patientId = localStorage.getItem('patientUUID');
-console.log("patientUUID: ",patientId;
+console.log("patientUUID: ",patientId);
 async function sendQuestion() {
   const question = document.getElementById('userQuestion').value.trim();
   if (!question) {
