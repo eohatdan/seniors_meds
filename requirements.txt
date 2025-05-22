@@ -1,3 +1,5 @@
-flask
-flask-cors
+Flask
+pyjwt
+python-dotenv
 openai
+supabase-py
