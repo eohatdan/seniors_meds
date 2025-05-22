@@ -1,8 +1,7 @@
 Flask
+flask_cors
 openai
 pyjwt
 python-dotenv
 requests
-flask_cors
 git+https://github.com/supabase-community/supabase-py.git
-
