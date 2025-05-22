@@ -6,8 +6,10 @@ import openai
 from flask_cors import CORS
 
 # Flask setup
-app = Flask(__name__)
-CORS(app)
+from flask_cors import CORS
+
+CORS(app, origins=["https://eohatdan.github.io"], supports_credentials=True)
+
 
 # Supabase setup
 SUPABASE_URL = os.getenv("SUPABASE_URL")
