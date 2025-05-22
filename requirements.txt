@@ -1,5 +1,7 @@
 Flask
+openai
 pyjwt
 python-dotenv
-openai
-supabase-py
+requests
+git+https://github.com/supabase-community/supabase-py.git
+
