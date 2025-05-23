@@ -38,25 +38,25 @@ async function sendQuestion() {
 
   try {
     const [medsRes, healthRes, surgeryRes] = await Promise.all([
-      client.from('medicationsList').select('*').eq('patient_id', patientId),
+      client.from('medicationslist').select('*').eq('patient_id', patientId),
       client.from('healthRecords').select('*').eq('patient_id', patientId),
       client.from('surgeryHistory').select('*').eq('patient_id', patientId)
     ]);
 
     if (medsRes.error || healthRes.error || surgeryRes.error) {
       console.error('Supabase errors:', {
-        medicationsList: medsRes.error,
+        medicationslist: medsRes.error,
         healthRecords: healthRes.error,
         surgeryHistory: surgeryRes.error
       });
       throw new Error('Error retrieving data from Supabase');
     }
 
-    const medicationsList = medsRes.data;
+    const medicationslist = medsRes.data;
     const healthRecords = healthRes.data;
     const surgeryHistory = surgeryRes.data;
 
-    const medsText = medicationsList.map(m => `${m.medication} (${m.dosage}, ${m.times})`).join('; ');
+    const medsText = medicationslist.map(m => `${m.medication} (${m.dosage}, ${m.times})`).join('; ');
     const healthText = healthRecords.map(h => `${h.type}: ${h.value}`).join('; ');
     const surgeryText = surgeryHistory.map(s => `${s.type} (${s.date})`).join('; ');
 
