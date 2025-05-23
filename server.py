@@ -73,7 +73,7 @@ def ask_openai():
 
         print("[DEBUG] OpenAI Prompt Received:", prompt[:300])
 
-        response = openai.ChatCompletion.create(
+        response = openai.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=[{"role": "user", "content": prompt}],
             temperature=0.7
