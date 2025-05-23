@@ -4,6 +4,7 @@ from supabase import create_client
 import openai
 import jwt
 import os
+import traceback
 
 # Flask app setup
 app = Flask(__name__)
@@ -73,14 +74,16 @@ def ask_openai():
         print("[DEBUG] OpenAI Prompt Received:", prompt[:300])
 
         response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",  # Temporarily use gpt-3.5-turbo for testing
+            model="gpt-3.5-turbo",
             messages=[{"role": "user", "content": prompt}],
             temperature=0.7
         )
         answer = response.choices[0].message.content.strip()
         return jsonify({"answer": answer})
+
     except Exception as e:
         print("OpenAI API error:", e)
+        traceback.print_exc()
         return jsonify({"error": "OpenAI request failed"}), 500
 
 if __name__ == "__main__":
