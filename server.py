@@ -12,12 +12,13 @@ CORS(app, origins=["https://eohatdan.github.io"], supports_credentials=True)
 # Supabase setup
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
-JWT_SECRET = os.getenv("SUPABASE_JWT_SECRET")  # from Supabase settings
+JWT_SECRET = os.getenv("SUPABASE_JWT_SECRET")
 
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # OpenAI setup
 openai.api_key = os.getenv("OPENAI_API_KEY")
+print("[DEBUG] Loaded OpenAI API Key:", "SET" if openai.api_key else "NOT SET")
 
 # JWT decoding helper
 def verify_token_and_get_user_id(auth_header):
@@ -26,7 +27,7 @@ def verify_token_and_get_user_id(auth_header):
             return None
         token = auth_header.split(" ")[1]
         payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
-        return payload.get("sub")  # user_id from auth.users
+        return payload.get("sub")
     except Exception as e:
         print("JWT verification error:", e)
         return None
@@ -42,7 +43,7 @@ def get_medications():
     if not user_id:
         return jsonify({"error": "Unauthorized"}), 401
     try:
-        result = supabase.table("medicationsList").select("*").eq("user_id", user_id).execute()
+        result = supabase.table("medicationslist").select("*").eq("user_id", user_id).execute()
         return jsonify(result.data)
     except Exception as e:
         print("Medications query error:", e)
@@ -69,8 +70,10 @@ def ask_openai():
         if not prompt:
             return jsonify({"error": "No prompt provided"}), 400
 
+        print("[DEBUG] OpenAI Prompt Received:", prompt[:300])
+
         response = openai.ChatCompletion.create(
-            model="gpt-4",  # or "gpt-3.5-turbo"
+            model="gpt-3.5-turbo",  # Temporarily use gpt-3.5-turbo for testing
             messages=[{"role": "user", "content": prompt}],
             temperature=0.7
         )
