@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Surgery History</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+    th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+    th { background-color: #f2f2f2; }
+    button.edit, button.delete { margin-right: 5px; }
+  </style>
+</head>
+<body>
+  <h2>Surgery History</h2>
+  <form id="surgeryForm">
+    <input type="hidden" id="entryId">
+    <label>Type: <input type="text" id="type" required></label><br>
+    <label>Date: <input type="date" id="date" required></label><br>
+    <label>Surgeon: <input type="text" id="surgeon"></label><br>
+    <label>Hospital: <input type="text" id="hospital"></label><br>
+    <button type="submit">Save Surgery</button>
+  </form>
+
+  <table id="historyTable">
+    <thead>
+      <tr>
+        <th>Date</th><th>Type</th><th>Surgeon</th><th>Hospital</th><th>Actions</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <script>
+    const SUPABASE_URL = 'https://ixxzxenspwzrkiazepbj.supabase.co';
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml4eHp4ZW5zcHd6cmtpYXplcGJqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM1MzE1NjMsImV4cCI6MjA1OTEwNzU2M30.28E41uParU4YMisV-Kxlq1KybbOdRrbKqXYKrH84COw';
+    const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    const patientId = localStorage.getItem('patientUUID');
+
+    async function loadSurgeryHistory() {
+      const { data, error } = await client.from('surgeryHistory').select('*').eq('patient_id', patientId);
+      if (error) {
+        console.error('Error loading surgery history:', error);
+        return;
+      }
+
+      const tbody = document.querySelector('#historyTable tbody');
+      tbody.innerHTML = '';
+      data.forEach(entry => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td>${entry.surgery_date}</td>
+          <td>${entry.surgery_name}</td>
+          <td>${entry.surgeon || ''}</td>
+          <td>${entry.hospital || ''}</td>
+          <td>
+            <button class="edit" onclick='editEntry(${JSON.stringify(entry)})'>✏️</button>
+            <button class="delete" onclick='deleteEntry("${entry.id}")'>🗑️</button>
+          </td>
+        `;
+        tbody.appendChild(row);
+      });
+    }
+
+    async function deleteEntry(id) {
+      const { error } = await client.from('surgeryHistory').delete().eq('id', id);
+      if (error) {
+        console.error('Delete error:', error);
+      } else {
+        loadSurgeryHistory();
+      }
+    }
+
+    function editEntry(entry) {
+      document.getElementById('entryId').value = entry.id;
+      document.getElementById('type').value = entry.surgery_name;
+      document.getElementById('date').value = entry.surgery_date;
+      document.getElementById('surgeon').value = entry.surgeon || '';
+      document.getElementById('hospital').value = entry.hospital || '';
+    }
+
+    document.getElementById('surgeryForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const id = document.getElementById('entryId').value;
+      const type = document.getElementById('type').value;
+      const date = document.getElementById('date').value;
+      const surgeon = document.getElementById('surgeon').value;
+      const hospital = document.getElementById('hospital').value;
+
+      const entry = {
+        surgery_name: type,
+        surgery_date: date,
+        surgeon: surgeon,
+        hospital: hospital
+      };
+
+      let error;
+      if (id) {
+        ({ error } = await client.from('surgeryHistory').update(entry).eq('id', id));
+      } else {
+        entry.patient_id = patientId;
+        ({ error } = await client.from('surgeryHistory').insert(entry));
+      }
+
+      if (error) {
+        console.error('Insert/Update error:', error);
+      } else {
+        document.getElementById('surgeryForm').reset();
+        document.getElementById('entryId').value = '';
+        loadSurgeryHistory();
+      }
+    });
+
+    loadSurgeryHistory();
+  </script>
+</body>
+</html>
