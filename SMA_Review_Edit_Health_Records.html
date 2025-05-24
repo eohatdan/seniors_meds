@@ -16,8 +16,9 @@
   <h2>Health Records</h2>
   <form id="healthForm">
     <input type="hidden" id="entryId">
-    <label>Type: <input type="text" id="type" required></label><br>
-    <label>Value: <input type="text" id="value" required></label><br>
+    <label>Condition: <input type="text" id="condition" required></label><br>
+    <label>Allergies: <input type="text" id="allergies"></label><br>
+    <label>Notes: <input type="text" id="notes"></label><br>
     <label>Date: <input type="date" id="date"></label><br>
     <button type="submit">Save Record</button>
   </form>
@@ -25,7 +26,7 @@
   <table id="recordsTable">
     <thead>
       <tr>
-        <th>Type</th><th>Value</th><th>Date</th><th>Actions</th>
+        <th>Condition</th><th>Allergies</th><th>Notes</th><th>Date</th><th>Actions</th>
       </tr>
     </thead>
     <tbody></tbody>
@@ -36,7 +37,7 @@
     const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml4eHp4ZW5zcHd6cmtpYXplcGJqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM1MzE1NjMsImV4cCI6MjA1OTEwNzU2M30.28E41uParU4YMisV-Kxlq1KybbOdRrbKqXYKrH84COw';
     const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
     const patientId = localStorage.getItem('patientUUID');
-    console.log("Patient UUID: ",patientId);
+
     async function loadHealthRecords() {
       const { data, error } = await client.from('healthRecords').select('*').eq('patient_id', patientId);
       if (error) {
@@ -49,8 +50,9 @@
       data.forEach(entry => {
         const row = document.createElement('tr');
         row.innerHTML = `
-          <td>${entry.type}</td>
-          <td>${entry.value}</td>
+          <td>${entry.condition || ''}</td>
+          <td>${entry.allergies || ''}</td>
+          <td>${entry.notes || ''}</td>
           <td>${entry.created_at ? entry.created_at.split('T')[0] : ''}</td>
           <td>
             <button class="edit" onclick='editEntry(${JSON.stringify(entry)})'>✏️</button>
@@ -72,8 +74,9 @@
 
     function editEntry(entry) {
       document.getElementById('entryId').value = entry.id;
-      document.getElementById('type').value = entry.type;
-      document.getElementById('value').value = entry.value;
+      document.getElementById('condition').value = entry.condition || '';
+      document.getElementById('allergies').value = entry.allergies || '';
+      document.getElementById('notes').value = entry.notes || '';
       if (entry.created_at) {
         document.getElementById('date').value = entry.created_at.split('T')[0];
       }
@@ -82,13 +85,15 @@
     document.getElementById('healthForm').addEventListener('submit', async (e) => {
       e.preventDefault();
       const id = document.getElementById('entryId').value;
-      const type = document.getElementById('type').value;
-      const value = document.getElementById('value').value;
+      const condition = document.getElementById('condition').value;
+      const allergies = document.getElementById('allergies').value;
+      const notes = document.getElementById('notes').value;
       const date = document.getElementById('date').value;
 
       const entry = {
-        type,
-        value,
+        condition,
+        allergies,
+        notes
       };
       if (date) entry.created_at = date;
 
