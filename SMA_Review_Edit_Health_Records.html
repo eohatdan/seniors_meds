@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Health Records</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+    th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+    th { background-color: #f2f2f2; }
+    button.edit, button.delete { margin-right: 5px; }
+  </style>
+</head>
+<body>
+  <h2>Health Records</h2>
+  <form id="healthForm">
+    <input type="hidden" id="entryId">
+    <label>Type: <input type="text" id="type" required></label><br>
+    <label>Value: <input type="text" id="value" required></label><br>
+    <label>Date: <input type="date" id="date"></label><br>
+    <button type="submit">Save Record</button>
+  </form>
+
+  <table id="recordsTable">
+    <thead>
+      <tr>
+        <th>Type</th><th>Value</th><th>Date</th><th>Actions</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <script>
+    const SUPABASE_URL = 'https://ixxzxenspwzrkiazepbj.supabase.co';
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml4eHp4ZW5zcHd6cmtpYXplcGJqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM1MzE1NjMsImV4cCI6MjA1OTEwNzU2M30.28E41uParU4YMisV-Kxlq1KybbOdRrbKqXYKrH84COw';
+    const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    const patientId = localStorage.getItem('patientUUID');
+
+    async function loadHealthRecords() {
+      const { data, error } = await client.from('healthRecords').select('*').eq('patient_id', patientId);
+      if (error) {
+        console.error('Error loading health records:', error);
+        return;
+      }
+
+      const tbody = document.querySelector('#recordsTable tbody');
+      tbody.innerHTML = '';
+      data.forEach(entry => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td>${entry.type}</td>
+          <td>${entry.value}</td>
+          <td>${entry.created_at ? entry.created_at.split('T')[0] : ''}</td>
+          <td>
+            <button class="edit" onclick='editEntry(${JSON.stringify(entry)})'>✏️</button>
+            <button class="delete" onclick='deleteEntry("${entry.id}")'>🗑️</button>
+          </td>
+        `;
+        tbody.appendChild(row);
+      });
+    }
+
+    async function deleteEntry(id) {
+      const { error } = await client.from('healthRecords').delete().eq('id', id);
+      if (error) {
+        console.error('Delete error:', error);
+      } else {
+        loadHealthRecords();
+      }
+    }
+
+    function editEntry(entry) {
+      document.getElementById('entryId').value = entry.id;
+      document.getElementById('type').value = entry.type;
+      document.getElementById('value').value = entry.value;
+      if (entry.created_at) {
+        document.getElementById('date').value = entry.created_at.split('T')[0];
+      }
+    }
+
+    document.getElementById('healthForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const id = document.getElementById('entryId').value;
+      const type = document.getElementById('type').value;
+      const value = document.getElementById('value').value;
+      const date = document.getElementById('date').value;
+
+      const entry = {
+        type,
+        value,
+      };
+      if (date) entry.created_at = date;
+
+      let error;
+      if (id) {
+        ({ error } = await client.from('healthRecords').update(entry).eq('id', id));
+      } else {
+        entry.patient_id = patientId;
+        ({ error } = await client.from('healthRecords').insert(entry));
+      }
+
+      if (error) {
+        console.error('Insert/Update error:', error);
+      } else {
+        document.getElementById('healthForm').reset();
+        document.getElementById('entryId').value = '';
+        loadHealthRecords();
+      }
+    });
+
+    loadHealthRecords();
+  </script>
+</body>
+</html>
