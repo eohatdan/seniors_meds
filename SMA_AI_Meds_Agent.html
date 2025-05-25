@@ -57,8 +57,8 @@ async function sendQuestion() {
     const surgeryHistory = surgeryRes.data;
 
     const medsText = medicationslist.map(m => `${m.medication} (${m.dosage}, ${m.times})`).join('; ');
-    const healthText = healthRecords.map(h => `${h.type}: ${h.value}`).join('; ');
-    const surgeryText = surgeryHistory.map(s => `${s.type} (${s.date})`).join('; ');
+    const healthText = healthRecords.map(h => `${h.condition} ${h.allergies}, ${h.notes}, ${h.created_at}`).join('; ');
+    const surgeryText = surgeryHistory.map(s => `${s.surgery_name} ${s.surgery_date}, ${s.surgeon}, ${s.hospital}`).join('; ');
 
     const finalPrompt = `Medications: ${medsText || 'None'}.
 Health Records: ${healthText || 'None'}.
