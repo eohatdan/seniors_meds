@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <title>Seniors Medical Assistant</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
   <style>
     body { font-family: Arial, sans-serif; padding: 40px; text-align: center; }
     h1 { margin-bottom: 40px; }
@@ -19,13 +20,24 @@
 <body>
   <h1>Seniors Medical Assistant</h1>
 
-  <button onclick="location.href='SMA_Check-in.html'">👤 Check-In</button>
+  <button onclick="location.href='SMA_Secure_Login.html'">🔐 Login / Sign Up</button>
   <button onclick="location.href='SMA_Review_Edit_Medications.html'">💊 Review or Edit Medications</button>
   <button onclick="location.href='SMA_Review_Edit_Health_Records.html'">📝 Review or Edit Health Records</button>
   <button onclick="location.href='SMA_Surgery_History.html'">🏥 Surgery History</button>
   <button onclick="location.href='SMA_AI_Meds_Agent.html'">🤖 Ask AI About My Medications and Health</button>
   <button onclick="location.href='SMA_Appointments.html'">📅 Manage Appointments</button>
-  <button onclick="location.href='SMA_Settings.html'">⚙️ Settings</button>
 
+  <script>
+    const SUPABASE_URL = 'https://ixxzxenspwzrkiazepbj.supabase.co';
+    const SUPABASE_KEY = 'your-anon-key-here';
+    const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    // Sign out any existing user session on page load
+    client.auth.signOut().then(() => {
+      console.log("Signed out any existing user session.");
+    }).catch(err => {
+      console.error("Error signing out user:", err);
+    });
+  </script>
 </body>
 </html>
