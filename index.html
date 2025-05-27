@@ -15,29 +15,49 @@
       cursor: pointer;
       width: 300px;
     }
+    #features { display: none; margin-top: 30px; }
+    #userEmail { color: #666; font-size: 0.9em; margin-bottom: 20px; }
   </style>
 </head>
 <body>
   <h1>Seniors Medical Assistant</h1>
 
-  <button onclick="location.href='SMA_Secure_Login.html'">🔐 Login / Sign Up</button>
-  <button onclick="location.href='SMA_Review_Edit_Medications.html'">💊 Review or Edit Medications</button>
-  <button onclick="location.href='SMA_Review_Edit_Health_Records.html'">📝 Review or Edit Health Records</button>
-  <button onclick="location.href='SMA_Surgery_History.html'">🏥 Surgery History</button>
-  <button onclick="location.href='SMA_AI_Meds_Agent.html'">🤖 Ask AI About My Medications and Health</button>
-  <button onclick="location.href='SMA_Appointments.html'">📅 Manage Appointments</button>
+  <div id="userEmail"></div>
+
+  <button onclick="location.href='SMA_Secure_Login.html'" id="loginBtn">🔐 Login / Sign Up</button>
+  <button onclick="logout()" id="logoutBtn" style="display:none;">🚪 Logout</button>
+
+  <div id="features">
+    <button onclick="location.href='SMA_Review_Edit_Medications.html'">💊 Review or Edit Medications</button>
+    <button onclick="location.href='SMA_Review_Edit_Health_Records.html'">📝 Review or Edit Health Records</button>
+    <button onclick="location.href='SMA_Surgery_History.html'">🏥 Surgery History</button>
+    <button onclick="location.href='SMA_AI_Meds_Agent.html'">🤖 Ask AI About My Medications and Health</button>
+    <button onclick="location.href='SMA_Appointments.html'">📅 Manage Appointments</button>
+  </div>
 
   <script>
     const SUPABASE_URL = 'https://ixxzxenspwzrkiazepbj.supabase.co';
     const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml4eHp4ZW5zcHd6cmtpYXplcGJqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM1MzE1NjMsImV4cCI6MjA1OTEwNzU2M30.28E41uParU4YMisV-Kxlq1KybbOdRrbKqXYKrH84COw';
     const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-    // Sign out any existing user session on page load
-    client.auth.signOut().then(() => {
-      console.log("Signed out any existing user session.");
-    }).catch(err => {
-      console.error("Error signing out user:", err);
+    client.auth.getSession().then(({ data: { session } }) => {
+      if (session && session.user) {
+        const email = session.user.email;
+        document.getElementById('userEmail').textContent = `Logged in as: ${email}`;
+        document.getElementById('features').style.display = 'block';
+        document.getElementById('loginBtn').style.display = 'none';
+        document.getElementById('logoutBtn').style.display = 'block';
+      }
     });
+
+    function logout() {
+      client.auth.signOut().then(() => {
+        console.log("Signed out.");
+        window.location.href = "SMA_Secure_Login.html";
+      }).catch(err => {
+        console.error("Error signing out user:", err);
+      });
+    }
   </script>
 </body>
 </html>
