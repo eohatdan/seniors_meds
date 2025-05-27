@@ -37,7 +37,7 @@
     const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml4eHp4ZW5zcHd6cmtpYXplcGJqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM1MzE1NjMsImV4cCI6MjA1OTEwNzU2M30.28E41uParU4YMisV-Kxlq1KybbOdRrbKqXYKrH84COw';
     const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
     const patientId = localStorage.getItem('patientUUID');
-    console.log("PatientID: ",patientID);
+    console.log("PatientID: ",patientId);
     
     async function loadHealthRecords() {
       const { data, error } = await client.from('healthRecords').select('*').eq('patient_id', patientId);
