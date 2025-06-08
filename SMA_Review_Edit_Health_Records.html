@@ -5,40 +5,88 @@
   <title>Health Records</title>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
   <style>
-    body { font-family: Arial, sans-serif; padding: 20px; }
-    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-    th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
-    th { background-color: #f2f2f2; }
-    button.edit, button.delete { margin-right: 5px; }
+    body {
+      background-color: #e0f0ff; /* Light blue */
+      font-family: Arial, sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+    }
+    .container {
+      background-color: white;
+      padding: 30px;
+      border-radius: 12px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.2);
+      width: 90%;
+      max-width: 800px;
+      text-align: center;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+    th, td {
+      border: 1px solid #ccc;
+      padding: 8px;
+      text-align: left;
+    }
+    th {
+      background-color: #f2f2f2;
+    }
+    input[type="text"], input[type="date"] {
+      width: 95%;
+      padding: 10px;
+      margin: 8px 0;
+      font-size: 16px;
+    }
+    button {
+      padding: 10px 18px;
+      font-size: 16px;
+      margin: 10px;
+      cursor: pointer;
+    }
+    #mainMenuBtn {
+      background-color: #0066cc;
+      color: white;
+      border: none;
+      float: right;
+    }
   </style>
 </head>
 <body>
-  <h2>Health Records</h2>
-  <form id="healthForm">
-    <input type="hidden" id="entryId">
-    <label>Condition: <input type="text" id="condition" required></label><br>
-    <label>Allergies: <input type="text" id="allergies"></label><br>
-    <label>Notes: <input type="text" id="notes"></label><br>
-    <label>Date: <input type="date" id="date"></label><br>
-    <button type="submit">Save Record</button>
-  </form>
+  <div class="container">
+    <h2>Health Records</h2>
 
-  <table id="recordsTable">
-    <thead>
-      <tr>
-        <th>Condition</th><th>Allergies</th><th>Notes</th><th>Date</th><th>Actions</th>
-      </tr>
-    </thead>
-    <tbody></tbody>
-  </table>
+    <button id="mainMenuBtn" onclick="window.location.href='index.html'">🏠 Return to Main Menu</button>
+
+    <form id="healthForm">
+      <input type="hidden" id="entryId">
+      <label>Condition:<br><input type="text" id="condition" required></label><br>
+      <label>Allergies:<br><input type="text" id="allergies"></label><br>
+      <label>Notes:<br><input type="text" id="notes"></label><br>
+      <label>Date:<br><input type="date" id="date"></label><br>
+      <button type="submit">💾 Save Record</button>
+    </form>
+
+    <table id="recordsTable">
+      <thead>
+        <tr>
+          <th>Condition</th><th>Allergies</th><th>Notes</th><th>Date</th><th>Actions</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
 
   <script>
     const SUPABASE_URL = 'https://ixxzxenspwzrkiazepbj.supabase.co';
     const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml4eHp4ZW5zcHd6cmtpYXplcGJqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM1MzE1NjMsImV4cCI6MjA1OTEwNzU2M30.28E41uParU4YMisV-Kxlq1KybbOdRrbKqXYKrH84COw';
     const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
     const patientId = localStorage.getItem('patientUUID');
-    console.log("PatientID: ",patientId);
-    
+
     async function loadHealthRecords() {
       const { data, error } = await client.from('healthRecords').select('*').eq('patient_id', patientId);
       if (error) {
@@ -91,11 +139,7 @@
       const notes = document.getElementById('notes').value;
       const date = document.getElementById('date').value;
 
-      const entry = {
-        condition,
-        allergies,
-        notes
-      };
+      const entry = { condition, allergies, notes };
       if (date) entry.created_at = date;
 
       let error;
