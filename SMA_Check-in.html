@@ -5,7 +5,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
   <style>
     body {
-      background-color: #e6f9e6; /* light green */
+      background-color: #e6f9e6;
       font-family: Arial, sans-serif;
       display: flex;
       justify-content: center;
@@ -92,24 +92,22 @@
       'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml4eHp4ZW5zcHd6cmtpYXplcGJqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM1MzE1NjMsImV4cCI6MjA1OTEwNzU2M30.28E41uParU4YMisV-Kxlq1KybbOdRrbKqXYKrH84COw'
     );
 
-    document.getElementById("role").addEventListener("change", function() {
+    document.getElementById("role").addEventListener("change", function () {
       const role = this.value;
       document.getElementById("patientInfo").style.display =
         role === "caregiver" || role === "care_coordinator" ? "block" : "none";
     });
 
-    document.getElementById("checkinForm").addEventListener("submit", async function(e) {
+    document.getElementById("checkinForm").addEventListener("submit", async function (e) {
       e.preventDefault();
       const output = document.getElementById("output");
       output.textContent = "Processing...";
 
-      // Gather main user info
       const fullName = document.getElementById("fullName").value;
       const email = document.getElementById("email").value;
       const dob = document.getElementById("dob").value;
       const role = document.getElementById("role").value;
 
-      // Insert or update in 'profiles'
       const { data: existing, error: fetchErr } = await client
         .from("profiles").select("*").eq("email", email).maybeSingle();
 
@@ -120,44 +118,54 @@
         await client.from("profiles").insert(profile);
       }
 
+      const { data: myProfile, error: idErr } = await client
+        .from("profiles").select("id").eq("email", email).maybeSingle();
+
+      if (!myProfile) {
+        output.textContent = "❌ Could not retrieve your user ID.";
+        return;
+      }
+
+      const myId = myProfile.id;
+
       if (role === "patient") {
         await client.from("patients").upsert({ email });
-        localStorage.setItem("patientUUID", email); // or replace with UUID lookup
+        localStorage.setItem("patientUUID", myId);
         output.textContent = "✅ Patient check-in complete.";
         window.location.href = "index.html";
         return;
       }
 
-      // For caregiver or coordinator
+      // caregiver or coordinator
       const patientName = document.getElementById("patientName").value;
       const patientEmail = document.getElementById("patientEmail").value;
       const patientDob = document.getElementById("patientDob").value;
 
-      const { data: patient, error: lookupErr } = await client
+      const { data: patientProfile, error: lookupErr } = await client
         .from("profiles").select("id").eq("email", patientEmail).maybeSingle();
 
-      if (!patient) {
+      if (!patientProfile) {
         output.textContent = "❌ Patient not found. Ask them to register first.";
         return;
       }
 
       const { data: existingLink } = await client
         .from("care_teams").select("*")
-        .eq("caregiver_id", email)
-        .eq("patient_id", patient.id)
+        .eq("caregiver_id", myId)
+        .eq("patient_id", patientProfile.id)
         .maybeSingle();
 
       if (!existingLink) {
         await client.from("care_teams").insert({
-          caregiver_id: email,
-          patient_id: patient.id,
+          caregiver_id: myId,
+          patient_id: patientProfile.id,
           can_view_medications: true,
           can_view_health_records: true,
           can_edit_notes: true
         });
       }
 
-      localStorage.setItem("patientUUID", patient.id);
+      localStorage.setItem("patientUUID", patientProfile.id);
       output.textContent = "✅ Check-in complete. Redirecting...";
       setTimeout(() => window.location.href = "index.html", 1500);
     });
