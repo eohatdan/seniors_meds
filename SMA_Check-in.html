@@ -122,6 +122,9 @@
         .from("profiles").select("id").eq("email", email).maybeSingle();
 
       if (!myProfile) {
+        console.log("Looking up ID for:", email);
+        console.log("Profile result:", myProfile);
+
         output.textContent = "❌ Could not retrieve your user ID.";
         return;
       }
