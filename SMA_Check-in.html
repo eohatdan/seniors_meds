@@ -22,9 +22,6 @@
       max-width: 600px;
       text-align: center;
     }
-    h1 {
-      margin-bottom: 20px;
-    }
     input, select {
       width: 90%;
       padding: 12px;
@@ -55,9 +52,6 @@
     <form id="checkinForm">
       <label>Full Name:</label>
       <input type="text" id="fullName" required>
-
-      <label>Email:</label>
-      <input type="email" id="email" required>
 
       <label>Date of Birth:</label>
       <input type="date" id="dob" required>
@@ -104,47 +98,45 @@
       output.textContent = "Processing...";
 
       const fullName = document.getElementById("fullName").value;
-      const email = document.getElementById("email").value;
       const dob = document.getElementById("dob").value;
       const role = document.getElementById("role").value;
 
-      const { data: existing, error: fetchErr } = await client
-        .from("profiles").select("*").eq("email", email).maybeSingle();
+      const { data: session } = await client.auth.getSession();
+      const userId = session?.user?.id;
+      const userEmail = session?.user?.email;
 
-      const profile = { full_name: fullName, email, dob, role };
-      if (existing) {
-        await client.from("profiles").update(profile).eq("email", email);
-      } else {
-        await client.from("profiles").insert(profile);
-      }
-
-      const { data: myProfile, error: idErr } = await client
-        .from("profiles").select("id").eq("email", email).maybeSingle();
-
-      if (!myProfile) {
-        console.log("Looking up ID for:", email);
-        console.log("Profile result:", myProfile);
-
-        output.textContent = "❌ Could not retrieve your user ID.";
+      if (!userId || !userEmail) {
+        output.textContent = "❌ User session invalid. Please log in again.";
         return;
       }
 
-      const myId = myProfile.id;
+      const profile = {
+        id: userId,
+        full_name: fullName,
+        email: userEmail,
+        dob: dob,
+        role: role
+      };
+
+      const { error: insertError } = await client.from("profiles").insert(profile);
+      if (insertError) {
+        console.error("❌ Insert into profiles failed:", insertError.message);
+        output.textContent = "❌ Failed to create user profile: " + insertError.message;
+        return;
+      }
 
       if (role === "patient") {
-        await client.from("patients").upsert({ email });
-        localStorage.setItem("patientUUID", myId);
-        output.textContent = "✅ Patient check-in complete.";
-        window.location.href = "index.html";
+        await client.from("patients").upsert({ email: userEmail });
+        localStorage.setItem("patientUUID", userId);
+        output.textContent = "✅ Check-in complete. Redirecting...";
+        setTimeout(() => window.location.href = "index.html", 1500);
         return;
       }
 
-      // caregiver or coordinator
-      const patientName = document.getElementById("patientName").value;
+      // caregiver/coordinator logic
       const patientEmail = document.getElementById("patientEmail").value;
-      const patientDob = document.getElementById("patientDob").value;
 
-      const { data: patientProfile, error: lookupErr } = await client
+      const { data: patientProfile } = await client
         .from("profiles").select("id").eq("email", patientEmail).maybeSingle();
 
       if (!patientProfile) {
@@ -154,13 +146,13 @@
 
       const { data: existingLink } = await client
         .from("care_teams").select("*")
-        .eq("caregiver_id", myId)
+        .eq("caregiver_id", userId)
         .eq("patient_id", patientProfile.id)
         .maybeSingle();
 
       if (!existingLink) {
         await client.from("care_teams").insert({
-          caregiver_id: myId,
+          caregiver_id: userId,
           patient_id: patientProfile.id,
           can_view_medications: true,
           can_view_health_records: true,
