@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Check-In | SMA App</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 2em; }
+    input, select { margin-bottom: 1em; display: block; }
+    #patient-details { display: none; }
+  </style>
+</head>
+<body>
+  <h1>Senior Medical Assistant - Check-In</h1>
+
+  <label>Full Name:</label>
+  <input type="text" id="fullName" required>
+
+  <label>Email:</label>
+  <input type="email" id="email" required>
+
+  <label>DOB (YYYY-MM-DD):</label>
+  <input type="date" id="dob" required>
+
+  <label>Role:</label>
+  <select id="role" onchange="togglePatientFields()">
+    <option value="patient">Patient</option>
+    <option value="caregiver">Caregiver</option>
+    <option value="care_coordinator">Care Coordinator</option>
+  </select>
+
+  <div id="patient-details">
+    <h3>Patient Info (for Caregivers/Coordinators)</h3>
+    <label>Patient Email:</label>
+    <input type="email" id="patientEmail">
+    <label>Patient DOB (optional):</label>
+    <input type="date" id="patientDob">
+    <label>Permissions:</label><br>
+    <input type="checkbox" id="permMeds"> View Medications<br>
+    <input type="checkbox" id="permHealth"> View Health Records<br>
+    <input type="checkbox" id="permNotes"> Edit Notes<br>
+  </div>
+
+  <button onclick="checkIn()">Submit</button>
+  <p id="output"></p>
+
+  <script>
+    const client = supabase.createClient('https://ixxzxenspwzrkiazepbj.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml4eHp4ZW5zcHd6cmtpYXplcGJqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM1MzE1NjMsImV4cCI6MjA1OTEwNzU2M30.28E41uParU4YMisV-Kxlq1KybbOdRrbKqXYKrH84COw');
+console.log("line 48");
+    function togglePatientFields() {
+      const role = document.getElementById("role").value;
+      document.getElementById("patient-details").style.display =
+        (role === "caregiver" || role === "care_coordinator") ? "block" : "none";
+    }
+
+    async function checkIn() {
+      const fullName = document.getElementById("fullName").value;
+      const email = document.getElementById("email").value.toLowerCase();
+      const dob = document.getElementById("dob").value;
+      const role = document.getElementById("role").value;
+      const output = document.getElementById("output");
+
+      const { data: authUser, error: authError } = await client.auth.getUser();
+      if (authError || !authUser?.user?.id) {
+        output.textContent = "❌ Unable to fetch user ID.";
+        return;
+      }
+
+      const userUUID = authUser.user.id;
+
+      // Check if user is already in profiles table
+      const { data: existingProfile } = await client
+        .from("profiles")
+        .select("id")
+        .eq("id", userUUID)
+        .maybeSingle();
+
+      if (!existingProfile) {
+        const { error: insertProfileError } = await client
+          .from("profiles")
+          .insert([{ id: userUUID, email, full_name: fullName, dob, role }]);
+
+        if (insertProfileError) {
+          output.textContent = "❌ Error inserting into profiles: " + insertProfileError.message;
+          return;
+        }
+      }
+
+      if (role === "patient") {
+        // Register new patient if not already present
+        const { data: existingPatient } = await client
+          .from("patients")
+          .select("id")
+          .eq("id", userUUID)
+          .maybeSingle();
+
+        if (!existingPatient) {
+          const { error: insertPatientError } = await client
+            .from("patients")
+            .insert([{ id: userUUID, email, full_name: fullName, dob }]);
+
+          if (insertPatientError) {
+            output.textContent = "❌ Error inserting into patients: " + insertPatientError.message;
+            return;
+          }
+        }
+
+        localStorage.setItem("patientUUID", userUUID);
+        output.textContent = "✅ Patient check-in complete. Redirecting...";
+        setTimeout(() => window.location.href = "index.html", 1500);
+
+      } else {
+        // Caregiver or Coordinator logic
+        const patientEmail = document.getElementById("patientEmail").value.toLowerCase();
+console.log("line 114");
+        const { data: patientData, error: patientLookupError } = await client
+          .from("patients")
+          .select("id")
+          .eq("email", patientEmail)
+          .maybeSingle();
+
+        if (patientLookupError || !patientData?.id) {
+          output.textContent = "❌ Patient not found or not accessible.";
+          return;
+        }
+
+        const patientUUID = patientData.id;
+
+        // Check if caregiver is already linked to patient
+        const { data: existingLink, error: lookupError } = await client
+          .from("care_teams")
+          .select("patient_id")
+          .eq("patient_id", patientUUID)
+          .eq("caregiver_id", userUUID)
+          .maybeSingle();
+
+        if (lookupError) {
+          output.textContent = "❌ Error checking caregiver link: " + lookupError.message;
+          return;
+        }
+
+        if (!existingLink) {
+          const permissions = {
+            can_view_medications: document.getElementById("permMeds").checked,
+            can_view_health_records: document.getElementById("permHealth").checked,
+            can_edit_notes: document.getElementById("permNotes").checked
+          };
+
+          const { error: insertCareError } = await client
+            .from("care_teams")
+            .insert([{
+              patient_id: patientUUID,
+              caregiver_id: userUUID,
+              role,
+              ...permissions
+            }]);
+
+          if (insertCareError) {
+            output.textContent = "❌ Failed to register caregiver link: " + insertCareError.message;
+            return;
+          }
+
+          output.textContent = "✅ Caregiver linked to patient. Redirecting...";
+        } else {
+          output.textContent = "✅ Caregiver already linked. Redirecting...";
+        }
+
+        localStorage.setItem("patientUUID", patientUUID);
+        setTimeout(() => window.location.href = "index.html", 1500);
+      }
+    }
+  </script>
+</body>
+</html>
