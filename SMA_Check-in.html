@@ -1,51 +1,104 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Check-In | SMA App</title>
+  <title>SMA Check-In</title>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
-    body { font-family: Arial, sans-serif; margin: 2em; }
-    input, select { margin-bottom: 1em; display: block; }
-    #patient-details { display: none; }
+    body {
+      background-color: #e6f9e6;
+      font-family: Arial, sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+    }
+    .container {
+      background-color: white;
+      padding: 30px;
+      border-radius: 12px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.2);
+      width: 90%;
+      max-width: 600px;
+    }
+    h1 {
+      text-align: center;
+    }
+    label {
+      display: block;
+      margin-top: 12px;
+      font-weight: bold;
+    }
+    input, select {
+      width: 100%;
+      padding: 10px;
+      margin-top: 4px;
+      font-size: 16px;
+    }
+    .checkbox-group {
+      margin-top: 8px;
+    }
+    button {
+      padding: 10px 20px;
+      font-size: 16px;
+      margin-top: 20px;
+      cursor: pointer;
+      width: 100%;
+    }
+    #output {
+      margin-top: 20px;
+      text-align: center;
+      font-weight: bold;
+    }
+    #patient-details {
+      display: none;
+      margin-top: 20px;
+    }
   </style>
 </head>
 <body>
-  <h1>Senior Medical Assistant - Check-In</h1>
+  <div class="container">
+    <h1>SMA Check-In</h1>
 
-  <label>Full Name:</label>
-  <input type="text" id="fullName" required>
+    <label>Full Name:</label>
+    <input type="text" id="fullName" required>
 
-  <label>Email:</label>
-  <input type="email" id="email" required>
+    <label>Email:</label>
+    <input type="email" id="email" required>
 
-  <label>DOB (YYYY-MM-DD):</label>
-  <input type="date" id="dob" required>
+    <label>Date of Birth:</label>
+    <input type="date" id="dob" required>
 
-  <label>Role:</label>
-  <select id="role" onchange="togglePatientFields()">
-    <option value="patient">Patient</option>
-    <option value="caregiver">Caregiver</option>
-    <option value="care_coordinator">Care Coordinator</option>
-  </select>
+    <label>Role:</label>
+    <select id="role" onchange="togglePatientFields()">
+      <option value="patient">Patient</option>
+      <option value="caregiver">Caregiver</option>
+      <option value="care_coordinator">Care Coordinator</option>
+    </select>
 
-  <div id="patient-details">
-    <h3>Patient Info (for Caregivers/Coordinators)</h3>
-    <label>Patient Email:</label>
-    <input type="email" id="patientEmail">
-    <label>Patient DOB (optional):</label>
-    <input type="date" id="patientDob">
-    <label>Permissions:</label><br>
-    <input type="checkbox" id="permMeds"> View Medications<br>
-    <input type="checkbox" id="permHealth"> View Health Records<br>
-    <input type="checkbox" id="permNotes"> Edit Notes<br>
+    <div id="patient-details">
+      <h3>Patient Info (for Caregivers/Coordinators)</h3>
+      <label>Patient Email:</label>
+      <input type="email" id="patientEmail">
+      <label>Patient DOB (optional):</label>
+      <input type="date" id="patientDob">
+      <div class="checkbox-group">
+        <label><input type="checkbox" id="permMeds"> View Medications</label><br>
+        <label><input type="checkbox" id="permHealth"> View Health Records</label><br>
+        <label><input type="checkbox" id="permNotes"> Edit Notes</label>
+      </div>
+    </div>
+
+    <button onclick="checkIn()">Submit</button>
+    <p id="output"></p>
   </div>
 
-  <button onclick="checkIn()">Submit</button>
-  <p id="output"></p>
-
   <script>
-    const client = supabase.createClient('https://ixxzxenspwzrkiazepbj.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml4eHp4ZW5zcHd6cmtpYXplcGJqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM1MzE1NjMsImV4cCI6MjA1OTEwNzU2M30.28E41uParU4YMisV-Kxlq1KybbOdRrbKqXYKrH84COw');
-console.log("line 48");
+    const client = supabase.createClient(
+      'https://ixxzxenspwzrkiazepbj.supabase.co',
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml4eHp4ZW5zcHd6cmtpYXplcGJqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM1MzE1NjMsImV4cCI6MjA1OTEwNzU2M30.28E41uParU4YMisV-Kxlq1KybbOdRrbKqXYKrH84COw'
+    );
+
     function togglePatientFields() {
       const role = document.getElementById("role").value;
       document.getElementById("patient-details").style.display =
@@ -67,7 +120,6 @@ console.log("line 48");
 
       const userUUID = authUser.user.id;
 
-      // Check if user is already in profiles table
       const { data: existingProfile } = await client
         .from("profiles")
         .select("id")
@@ -86,7 +138,6 @@ console.log("line 48");
       }
 
       if (role === "patient") {
-        // Register new patient if not already present
         const { data: existingPatient } = await client
           .from("patients")
           .select("id")
@@ -109,9 +160,8 @@ console.log("line 48");
         setTimeout(() => window.location.href = "index.html", 1500);
 
       } else {
-        // Caregiver or Coordinator logic
         const patientEmail = document.getElementById("patientEmail").value.toLowerCase();
-console.log("line 114");
+
         const { data: patientData, error: patientLookupError } = await client
           .from("patients")
           .select("id")
@@ -125,7 +175,6 @@ console.log("line 114");
 
         const patientUUID = patientData.id;
 
-        // Check if caregiver is already linked to patient
         const { data: existingLink, error: lookupError } = await client
           .from("care_teams")
           .select("patient_id")
