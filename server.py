@@ -7,8 +7,11 @@ import os
 import traceback
 
 # Flask app setup
+from flask import Flask
+from flask_cors import CORS
+
 app = Flask(__name__)
-CORS(app, origins=["https://eohatdan.github.io"], supports_credentials=True)
+CORS(app, resources={r"/*": {"origins": "*"}})  # allow all for dev, tighten later
 
 # Supabase setup
 SUPABASE_URL = os.getenv("SUPABASE_URL")
