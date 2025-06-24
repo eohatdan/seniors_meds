@@ -105,7 +105,7 @@
         .eq('patient_id', patientUUID);
 
       if (error) {
-        console.error('Error loading medications:', error);
+        console.log('Error loading medications:', error);
         medsList.textContent = 'Error loading medications.';
         return;
       }
@@ -145,7 +145,8 @@
 
         if (error) {
           alert('Failed to update medication');
-          console.error(error);
+          console.log('PatientUUID: ',patientUUID);
+          console.log(error);
           return;
         }
 
@@ -163,7 +164,7 @@
 
         if (error) {
           alert('Failed to add medication');
-          console.error(error);
+          console.log(error);
           return;
         }
       }
@@ -191,7 +192,7 @@
 
       if (error) {
         alert('Failed to delete medication');
-        console.error(error);
+        console.log(error);
         return;
       }
 
