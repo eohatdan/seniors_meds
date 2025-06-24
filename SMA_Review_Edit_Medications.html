@@ -47,16 +47,13 @@
     button:hover {
       background-color: #004999;
     }
-    .button-row {
-      margin-top: 10px;
+    .top-right {
+      text-align: right;
+      margin-bottom: 10px;
     }
     .med-item {
       padding: 10px;
       border-bottom: 1px solid #ccc;
-    }
-    .top-right {
-      text-align: right;
-      margin-bottom: 10px;
     }
     .med-actions {
       margin-top: 6px;
@@ -88,7 +85,7 @@
     </div>
 
     <h3>Current Medications</h3>
-    <div id="medicationslist"></div>
+    <div id="medicationsList"></div>
   </div>
 
   <script>
@@ -97,7 +94,7 @@
     const client = supabase.createClient(supabaseUrl, supabaseKey);
 
     const patientUUID = localStorage.getItem('patientUUID');
-    const medsList = document.getElementById('medicationslist');
+    const medsList = document.getElementById('medicationsList');
 
     let editingId = null;
 
@@ -143,7 +140,7 @@
       if (editingId) {
         const { error } = await client
           .from('medicationslist')
-          .update({ medication, dosage, frequency })
+          .update({ medication, dosage, frequency, patient_id: patientUUID })
           .eq('id', editingId);
 
         if (error) {
