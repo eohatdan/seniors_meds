@@ -87,7 +87,7 @@
     </div>
 
     <h3>Current Medications</h3>
-    <div id="medicationsList"></div>
+    <div id="medicationslist"></div>
   </div>
 
   <script>
@@ -96,11 +96,11 @@
     const client = supabase.createClient(supabaseUrl, supabaseKey);
 
     const patientUUID = localStorage.getItem('patientUUID');
-    const medsList = document.getElementById('medicationsList');
+    const medsList = document.getElementById('medicationslist');
 
     async function loadMeds() {
       const { data, error } = await client
-        .from('medicationsList')
+        .from('medicationslist')
         .select('*')
         .eq('patient_id', patientUUID);
 
@@ -133,7 +133,7 @@
         return;
       }
 
-      const { error } = await client.from('medicationsList').insert([
+      const { error } = await client.from('medicationslist').insert([
         {
           medication,
           dosage,
