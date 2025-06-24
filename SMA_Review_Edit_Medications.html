@@ -88,7 +88,7 @@
     </div>
 
     <h3>Current Medications</h3>
-    <div id="medicationsList"></div>
+    <div id="medicationslist"></div>
   </div>
 
   <script>
@@ -97,13 +97,13 @@
     const client = supabase.createClient(supabaseUrl, supabaseKey);
 
     const patientUUID = localStorage.getItem('patientUUID');
-    const medsList = document.getElementById('medicationsList');
+    const medsList = document.getElementById('medicationslist');
 
     let editingId = null;
 
     async function loadMeds() {
       const { data, error } = await client
-        .from('medicationsList')
+        .from('medicationslist')
         .select('*')
         .eq('patient_id', patientUUID);
 
@@ -142,7 +142,7 @@
 
       if (editingId) {
         const { error } = await client
-          .from('medicationsList')
+          .from('medicationslist')
           .update({ medication, dosage, frequency })
           .eq('id', editingId);
 
@@ -155,7 +155,7 @@
         editingId = null;
         document.getElementById('submitBtn').textContent = '➕ Add Medication';
       } else {
-        const { error } = await client.from('medicationsList').insert([
+        const { error } = await client.from('medicationslist').insert([
           {
             medication,
             dosage,
@@ -188,7 +188,7 @@
       if (!confirmed) return;
 
       const { error } = await client
-        .from('medicationsList')
+        .from('medicationslist')
         .delete()
         .eq('id', id);
 
