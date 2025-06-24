@@ -39,21 +39,16 @@
       background-color: #0066cc;
       color: white;
       border: none;
-      padding: 10px 16px;
-      border-radius: 8px;
+      padding: 8px 12px;
+      border-radius: 6px;
       cursor: pointer;
-      font-size: 16px;
-      margin-top: 10px;
+      font-size: 14px;
     }
     button:hover {
       background-color: #004999;
     }
     .button-row {
-      margin-top: 20px;
-      display: flex;
-      justify-content: space-between;
-      flex-wrap: wrap;
-      gap: 10px;
+      margin-top: 10px;
     }
     .med-item {
       padding: 10px;
@@ -62,6 +57,12 @@
     .top-right {
       text-align: right;
       margin-bottom: 10px;
+    }
+    .med-actions {
+      margin-top: 6px;
+    }
+    .med-actions button {
+      margin-right: 8px;
     }
   </style>
 </head>
@@ -83,11 +84,11 @@
       <label for="frequency">Frequency</label>
       <input type="text" id="frequency" />
 
-      <button onclick="addMedication()">➕ Add Medication</button>
+      <button onclick="submitMedication()" id="submitBtn">➕ Add Medication</button>
     </div>
 
     <h3>Current Medications</h3>
-    <div id="medicationslist"></div>
+    <div id="medicationsList"></div>
   </div>
 
   <script>
@@ -96,11 +97,13 @@
     const client = supabase.createClient(supabaseUrl, supabaseKey);
 
     const patientUUID = localStorage.getItem('patientUUID');
-    const medsList = document.getElementById('medicationslist');
+    const medsList = document.getElementById('medicationsList');
+
+    let editingId = null;
 
     async function loadMeds() {
       const { data, error } = await client
-        .from('medicationslist')
+        .from('medicationsList')
         .select('*')
         .eq('patient_id', patientUUID);
 
@@ -118,12 +121,16 @@
           <strong>${med.medication}</strong><br>
           Dosage: ${med.dosage}<br>
           Frequency: ${med.frequency}
+          <div class="med-actions">
+            <button onclick="editMedication('${med.id}', '${med.medication}', '${med.dosage}', '${med.frequency}')">✏️ Edit</button>
+            <button onclick="deleteMedication('${med.id}')">🗑️ Delete</button>
+          </div>
         `;
         medsList.appendChild(div);
       });
     }
 
-    async function addMedication() {
+    async function submitMedication() {
       const medication = document.getElementById('medication').value.trim();
       const dosage = document.getElementById('dosage').value.trim();
       const frequency = document.getElementById('frequency').value.trim();
@@ -133,25 +140,71 @@
         return;
       }
 
-      const { error } = await client.from('medicationslist').insert([
-        {
-          medication,
-          dosage,
-          frequency,
-          patient_id: patientUUID
+      if (editingId) {
+        const { error } = await client
+          .from('medicationsList')
+          .update({ medication, dosage, frequency })
+          .eq('id', editingId);
+
+        if (error) {
+          alert('Failed to update medication');
+          console.error(error);
+          return;
         }
-      ]);
+
+        editingId = null;
+        document.getElementById('submitBtn').textContent = '➕ Add Medication';
+      } else {
+        const { error } = await client.from('medicationsList').insert([
+          {
+            medication,
+            dosage,
+            frequency,
+            patient_id: patientUUID
+          }
+        ]);
+
+        if (error) {
+          alert('Failed to add medication');
+          console.error(error);
+          return;
+        }
+      }
+
+      clearInputs();
+      await loadMeds();
+    }
+
+    function editMedication(id, medication, dosage, frequency) {
+      editingId = id;
+      document.getElementById('medication').value = medication;
+      document.getElementById('dosage').value = dosage;
+      document.getElementById('frequency').value = frequency;
+      document.getElementById('submitBtn').textContent = '💾 Save Changes';
+    }
+
+    async function deleteMedication(id) {
+      const confirmed = confirm("Are you sure you want to delete this medication?");
+      if (!confirmed) return;
+
+      const { error } = await client
+        .from('medicationsList')
+        .delete()
+        .eq('id', id);
 
       if (error) {
-        alert('Failed to add medication');
+        alert('Failed to delete medication');
         console.error(error);
         return;
       }
 
+      await loadMeds();
+    }
+
+    function clearInputs() {
       document.getElementById('medication').value = '';
       document.getElementById('dosage').value = '';
       document.getElementById('frequency').value = '';
-      await loadMeds();
     }
 
     loadMeds();
