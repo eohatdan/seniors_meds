@@ -78,8 +78,8 @@
       <label for="dosage">Dosage</label>
       <input type="text" id="dosage" />
 
-      <label for="frequency">Frequency</label>
-      <input type="text" id="frequency" />
+      <label for="times">Times per Day</label>
+      <input type="text" id="times" />
 
       <button onclick="submitMedication()" id="submitBtn">➕ Add Medication</button>
     </div>
@@ -117,9 +117,9 @@
         div.innerHTML = `
           <strong>${med.medication}</strong><br>
           Dosage: ${med.dosage}<br>
-          Frequency: ${med.frequency}
+          Times per Day: ${med.times}
           <div class="med-actions">
-            <button onclick="editMedication('${med.id}', '${med.medication}', '${med.dosage}', '${med.frequency}')">✏️ Edit</button>
+            <button onclick="editMedication('${med.id}', '${med.medication}', '${med.dosage}', '${med.times}')">✏️ Edit</button>
             <button onclick="deleteMedication('${med.id}')">🗑️ Delete</button>
           </div>
         `;
@@ -130,9 +130,9 @@
     async function submitMedication() {
       const medication = document.getElementById('medication').value.trim();
       const dosage = document.getElementById('dosage').value.trim();
-      const frequency = document.getElementById('frequency').value.trim();
+      const times = document.getElementById('times').value.trim();
 
-      if (!medication || !dosage || !frequency) {
+      if (!medication || !dosage || !times) {
         alert('Please fill in all fields.');
         return;
       }
@@ -140,12 +140,11 @@
       if (editingId) {
         const { error } = await client
           .from('medicationslist')
-          .update({ medication, dosage, frequency, patient_id: patientUUID })
+          .update({ medication, dosage, times, patient_id: patientUUID })
           .eq('id', editingId);
 
         if (error) {
           alert('Failed to update medication');
-          console.log('PatientUUID: ',patientUUID);
           console.log(error);
           return;
         }
@@ -157,7 +156,7 @@
           {
             medication,
             dosage,
-            frequency,
+            times,
             patient_id: patientUUID
           }
         ]);
@@ -173,11 +172,11 @@
       await loadMeds();
     }
 
-    function editMedication(id, medication, dosage, frequency) {
+    function editMedication(id, medication, dosage, times) {
       editingId = id;
       document.getElementById('medication').value = medication;
       document.getElementById('dosage').value = dosage;
-      document.getElementById('frequency').value = frequency;
+      document.getElementById('times').value = times;
       document.getElementById('submitBtn').textContent = '💾 Save Changes';
     }
 
@@ -202,7 +201,7 @@
     function clearInputs() {
       document.getElementById('medication').value = '';
       document.getElementById('dosage').value = '';
-      document.getElementById('frequency').value = '';
+      document.getElementById('times').value = '';
     }
 
     loadMeds();
