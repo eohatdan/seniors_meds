@@ -5,32 +5,111 @@
   <title>Surgery History</title>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
   <style>
-    body { font-family: Arial, sans-serif; padding: 20px; }
-    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-    th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
-    th { background-color: #f2f2f2; }
-    button.edit, button.delete { margin-right: 5px; }
+    body {
+      background-color: #f0f8ff;
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+    }
+    .container {
+      max-width: 800px;
+      margin: 40px auto;
+      background: white;
+      padding: 20px 30px;
+      border-radius: 12px;
+      box-shadow: 0 0 12px rgba(0, 0, 0, 0.2);
+    }
+    h2 {
+      text-align: center;
+      color: #003366;
+    }
+    label {
+      display: block;
+      margin-top: 12px;
+      font-weight: bold;
+    }
+    input[type="text"],
+    input[type="date"] {
+      width: 100%;
+      padding: 10px;
+      margin-top: 4px;
+      font-size: 16px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+    }
+    button {
+      background-color: #0066cc;
+      color: white;
+      border: none;
+      padding: 10px 16px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 16px;
+      margin-top: 16px;
+    }
+    button:hover {
+      background-color: #004999;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 24px;
+    }
+    th, td {
+      border: 1px solid #ccc;
+      padding: 10px;
+      text-align: left;
+    }
+    th {
+      background-color: #e0eaff;
+    }
+    .top-right {
+      text-align: right;
+      margin-bottom: 10px;
+    }
+    .action-buttons button {
+      margin-right: 6px;
+    }
   </style>
 </head>
 <body>
-  <h2>Surgery History</h2>
-  <form id="surgeryForm">
-    <input type="hidden" id="entryId">
-    <label>Type: <input type="text" id="type" required></label><br>
-    <label>Date: <input type="date" id="date" required></label><br>
-    <label>Surgeon: <input type="text" id="surgeon"></label><br>
-    <label>Hospital: <input type="text" id="hospital"></label><br>
-    <button type="submit">Save Surgery</button>
-  </form>
+  <div class="container">
+    <div class="top-right">
+      <button onclick="window.location.href='index.html'">⬅️ Return to Main Menu</button>
+    </div>
 
-  <table id="historyTable">
-    <thead>
-      <tr>
-        <th>Date</th><th>Type</th><th>Surgeon</th><th>Hospital</th><th>Actions</th>
-      </tr>
-    </thead>
-    <tbody></tbody>
-  </table>
+    <h2>Surgery History</h2>
+
+    <form id="surgeryForm">
+      <input type="hidden" id="entryId">
+      <label>Type:</label>
+      <input type="text" id="type" required>
+
+      <label>Date:</label>
+      <input type="date" id="date" required>
+
+      <label>Surgeon:</label>
+      <input type="text" id="surgeon">
+
+      <label>Hospital:</label>
+      <input type="text" id="hospital">
+
+      <button type="submit">💾 Save Surgery</button>
+    </form>
+
+    <table id="historyTable">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Type</th>
+          <th>Surgeon</th>
+          <th>Hospital</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
 
   <script>
     const SUPABASE_URL = 'https://ixxzxenspwzrkiazepbj.supabase.co';
@@ -41,7 +120,7 @@
     async function loadSurgeryHistory() {
       const { data, error } = await client.from('surgeryHistory').select('*').eq('patient_id', patientId);
       if (error) {
-        console.error('Error loading surgery history:', error);
+        console.log('Error loading surgery history:', error);
         return;
       }
 
@@ -54,9 +133,9 @@
           <td>${entry.surgery_name}</td>
           <td>${entry.surgeon || ''}</td>
           <td>${entry.hospital || ''}</td>
-          <td>
-            <button class="edit" onclick='editEntry(${JSON.stringify(entry)})'>✏️</button>
-            <button class="delete" onclick='deleteEntry("${entry.id}")'>🗑️</button>
+          <td class="action-buttons">
+            <button onclick='editEntry(${JSON.stringify(entry)})'>✏️</button>
+            <button onclick='deleteEntry("${entry.id}")'>🗑️</button>
           </td>
         `;
         tbody.appendChild(row);
@@ -66,7 +145,7 @@
     async function deleteEntry(id) {
       const { error } = await client.from('surgeryHistory').delete().eq('id', id);
       if (error) {
-        console.error('Delete error:', error);
+        console.log('Delete error:', error);
       } else {
         loadSurgeryHistory();
       }
@@ -104,7 +183,7 @@
       }
 
       if (error) {
-        console.error('Insert/Update error:', error);
+        console.log('Insert/Update error:', error);
       } else {
         document.getElementById('surgeryForm').reset();
         document.getElementById('entryId').value = '';
