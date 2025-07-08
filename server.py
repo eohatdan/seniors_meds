@@ -1,97 +1,88 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from supabase import create_client
 import openai
-import jwt
-import os
-import traceback
 import fitz  # PyMuPDF
+from supabase import create_client, Client
+import os
 
+# Initialize app and CORS
 app = Flask(__name__)
 CORS(app)
 
-# Flask app setup
-from flask import Flask
-from flask_cors import CORS
-
-app = Flask(__name__)
-CORS(app, resources={r"/*": {"origins": "*"}})  # allow all for dev, tighten later
-
 # Supabase setup
 SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_KEY = os.getenv("SUPABASE_KEY")
-JWT_SECRET = os.getenv("SUPABASE_JWT_SECRET")
-
-supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_KEY")
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # OpenAI setup
 openai.api_key = os.getenv("OPENAI_API_KEY")
-print("[DEBUG] Loaded OpenAI API Key:", "SET" if openai.api_key else "NOT SET")
 
-# JWT decoding helper
-def verify_token_and_get_user_id(auth_header):
-    try:
-        if not auth_header or not auth_header.startswith("Bearer "):
-            return None
-        token = auth_header.split(" ")[1]
-        payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
-        return payload.get("sub")
-    except Exception as e:
-        print("JWT verification error:", e)
-        return None
-
-@app.route("/")
-def home():
-    return "SMA Server is running."
-
-@app.route("/get-medications", methods=["POST"])
-def get_medications():
-    auth_header = request.headers.get("Authorization", "")
-    user_id = verify_token_and_get_user_id(auth_header)
-    if not user_id:
-        return jsonify({"error": "Unauthorized"}), 401
-    try:
-        result = supabase.table("medicationslist").select("*").eq("user_id", user_id).execute()
-        return jsonify(result.data)
-    except Exception as e:
-        print("Medications query error:", e)
-        return jsonify({"error": "Database query failed"}), 500
-
-@app.route("/get-health-records", methods=["POST"])
-def get_health_records():
-    auth_header = request.headers.get("Authorization", "")
-    user_id = verify_token_and_get_user_id(auth_header)
-    if not user_id:
-        return jsonify({"error": "Unauthorized"}), 401
-    try:
-        result = supabase.table("healthRecords").select("*").eq("user_id", user_id).execute()
-        return jsonify(result.data)
-    except Exception as e:
-        print("Health records query error:", e)
-        return jsonify({"error": "Database query failed"}), 500
+# ========== AI Query Endpoint ==========
 
 @app.route("/ask-openai", methods=["POST"])
 def ask_openai():
+    data = request.json
+    patient_id = data.get("patient_id")
+    user_prompt = data.get("prompt")
+
     try:
-        data = request.get_json()
-        prompt = data.get("prompt")
-        if not prompt:
-            return jsonify({"error": "No prompt provided"}), 400
+        # Gather patient data
+        meds = supabase.table("medicationslist").select("*").eq("patient_id", patient_id).execute().data
+        health = supabase.table("healthRecords").select("*").eq("patient_id", patient_id).execute().data
+        surgeries = supabase.table("surgeryHistory").select("*").eq("patient_id", patient_id).execute().data
+        lab_result = supabase.table("lab_reports").select("*").eq("patient_id", patient_id).order("date", desc=True).limit(1).execute().data
 
-        print("[DEBUG] OpenAI Prompt Received:", prompt[:300])
+        # Build enhanced prompt
+        enhanced_prompt = "Patient background:\n"
 
-        response = openai.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.7
+        if meds:
+            enhanced_prompt += "\nMedications:\n"
+            for med in meds:
+                enhanced_prompt += f"- {med['medication']} ({med['dosage']}, {med['times']}x/day)\n"
+
+        if health:
+            enhanced_prompt += "\nHealth Records:\n"
+            hr = health[0]
+            enhanced_prompt += f"- Conditions: {hr.get('conditions', '')}\n"
+            enhanced_prompt += f"- Allergies: {hr.get('allergies', '')}\n"
+            enhanced_prompt += f"- Notes: {hr.get('notes', '')}\n"
+
+        if surgeries:
+            enhanced_prompt += "\nSurgical History:\n"
+            for s in surgeries:
+                enhanced_prompt += f"- {s['surgery_name']} on {s['surgery_date']} at {s['surgery_hospital']} (Surgeon: {s['surgeon']})\n"
+
+        if lab_result:
+            readings = lab_result[0].get('readings', [])
+            if isinstance(readings, list) and readings:
+                enhanced_prompt += "\nRecent Lab Readings:\n"
+                for r in readings:
+                    line = f"- {r['test']}: {r['result']} {r.get('units', '')}"
+                    if r.get('flag'):
+                        line += f" ({r['flag']})"
+                    if r.get('ref_range'):
+                        line += f" [Ref: {r['ref_range']}]"
+                    enhanced_prompt += line + "\n"
+
+        # Add user question
+        enhanced_prompt += f"\n\nUser question: {user_prompt}"
+
+        # Query OpenAI
+        response = openai.ChatCompletion.create(
+            model="gpt-4",
+            messages=[
+                {"role": "system", "content": "You are a helpful health assistant reviewing patient records."},
+                {"role": "user", "content": enhanced_prompt}
+            ]
         )
-        answer = response.choices[0].message.content.strip()
-        return jsonify({"answer": answer})
+
+        reply = response.choices[0].message.content
+        return jsonify({"response": reply})
 
     except Exception as e:
-        print("OpenAI API error:", e)
-        traceback.print_exc()
-        return jsonify({"error": "OpenAI request failed"}), 500
+        return jsonify({"error": str(e)}), 500
+
+# ========== PDF Extraction Endpoint ==========
 
 @app.route('/extract-readings', methods=['POST'])
 def extract_readings():
@@ -114,12 +105,11 @@ def extract_lab_data_from_text(text):
         parts = line.strip().split()
         if len(parts) >= 4:
             try:
-                # Find numeric result (could be position 1 or 2)
                 name_parts = []
+                result = None
                 units = ""
                 ref_range = ""
                 flag = None
-                result = None
 
                 for i, part in enumerate(parts):
                     if is_float(part):
@@ -154,6 +144,6 @@ def is_float(value):
     except:
         return False
 
-
+# Run for local dev (optional)
 if __name__ == "__main__":
-    app.run(debug=False, host="0.0.0.0", port=10000)
+    app.run(debug=True)
