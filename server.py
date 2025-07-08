@@ -76,7 +76,7 @@ def ask_openai():
         enhanced_prompt += f"\n\nUser question: {user_prompt}"
         print("Enhanced prompt: ",enhanced_prompt);
         try:
-            response = openai.ChatCompletion.create(
+            response = openai.chat.completions.create(
                 model="gpt-4",
                 messages=[
                     {"role": "system", "content": "You are a helpful health assistant reviewing patient records."},
