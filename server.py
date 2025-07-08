@@ -74,7 +74,7 @@ def ask_openai():
                     enhanced_prompt += line + "\n"
 
         enhanced_prompt += f"\n\nUser question: {user_prompt}"
-        console.log("Enhanced prompt: ",enhanced_prompt);
+        print("Enhanced prompt: ",enhanced_prompt);
         try:
             response = openai.ChatCompletion.create(
                 model="gpt-4",
