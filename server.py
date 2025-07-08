@@ -21,12 +21,18 @@ openai.api_key = os.getenv("OPENAI_API_KEY")
 
 @app.route("/ask-openai", methods=["POST"])
 def ask_openai():
-    data = request.json
+    data = request.get_json()
+    if not data:
+        return jsonify({"error": "No JSON received"}), 400
+
     patient_id = data.get("patient_id")
     user_prompt = data.get("prompt")
 
+    if not patient_id or not user_prompt:
+        return jsonify({"error": "Missing patient_id or prompt"}), 400
+
     try:
-        # Gather patient data
+        # Fetch patient data
         meds = supabase.table("medicationslist").select("*").eq("patient_id", patient_id).execute().data
         health = supabase.table("healthRecords").select("*").eq("patient_id", patient_id).execute().data
         surgeries = supabase.table("surgeryHistory").select("*").eq("patient_id", patient_id).execute().data
@@ -38,11 +44,11 @@ def ask_openai():
         if meds:
             enhanced_prompt += "\nMedications:\n"
             for med in meds:
-                enhanced_prompt += f"- {med['medication']} ({med['dosage']}, {med['times']}x/day)\n"
+                enhanced_prompt += f"- {med.get('medication', '')} ({med.get('dosage', '')}, {med.get('times', '')}x/day)\n"
 
         if health:
-            enhanced_prompt += "\nHealth Records:\n"
             hr = health[0]
+            enhanced_prompt += "\nHealth Records:\n"
             enhanced_prompt += f"- Conditions: {hr.get('conditions', '')}\n"
             enhanced_prompt += f"- Allergies: {hr.get('allergies', '')}\n"
             enhanced_prompt += f"- Notes: {hr.get('notes', '')}\n"
@@ -50,34 +56,37 @@ def ask_openai():
         if surgeries:
             enhanced_prompt += "\nSurgical History:\n"
             for s in surgeries:
-                enhanced_prompt += f"- {s['surgery_name']} on {s['surgery_date']} at {s['surgery_hospital']} (Surgeon: {s['surgeon']})\n"
+                enhanced_prompt += (
+                    f"- {s.get('surgery_name', '')} on {s.get('surgery_date', '')} at "
+                    f"{s.get('surgery_hospital', 'Unknown Hospital')} (Surgeon: {s.get('surgeon', 'Unknown')})\n"
+                )
 
         if lab_result:
             readings = lab_result[0].get('readings', [])
             if isinstance(readings, list) and readings:
                 enhanced_prompt += "\nRecent Lab Readings:\n"
                 for r in readings:
-                    line = f"- {r['test']}: {r['result']} {r.get('units', '')}"
+                    line = f"- {r.get('test', '')}: {r.get('result', '')} {r.get('units', '')}"
                     if r.get('flag'):
                         line += f" ({r['flag']})"
                     if r.get('ref_range'):
                         line += f" [Ref: {r['ref_range']}]"
                     enhanced_prompt += line + "\n"
 
-        # Add user question
         enhanced_prompt += f"\n\nUser question: {user_prompt}"
-
-        # Query OpenAI
-        response = openai.ChatCompletion.create(
-            model="gpt-4",
-            messages=[
-                {"role": "system", "content": "You are a helpful health assistant reviewing patient records."},
-                {"role": "user", "content": enhanced_prompt}
-            ]
-        )
-
-        reply = response.choices[0].message.content
-        return jsonify({"response": reply})
+        console.log("Enhanced prompt: ",enhanced_prompt);
+        try:
+            response = openai.ChatCompletion.create(
+                model="gpt-4",
+                messages=[
+                    {"role": "system", "content": "You are a helpful health assistant reviewing patient records."},
+                    {"role": "user", "content": enhanced_prompt}
+                ]
+            )
+            reply = response.choices[0].message.content
+            return jsonify({"response": reply})
+        except Exception as e:
+            return jsonify({"error": f"OpenAI failure: {str(e)}"}), 500
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -144,11 +153,7 @@ def is_float(value):
     except:
         return False
 
-# Run for local dev (optional)
+# ========== Render Entry Point ==========
 if __name__ == "__main__":
-    import os
-
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))  # fallback for local
+    port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
-
