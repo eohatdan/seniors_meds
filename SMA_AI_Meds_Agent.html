@@ -83,7 +83,7 @@
       responseBox.textContent = "Thinking...";
 
       try {
-        const res = await fetch("https://seniors-meds-2.onrender.comL/ask-openai", {
+        const res = await fetch("https://seniors-meds-2.onrender.com/ask-openai", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ patient_id: patientId, prompt: question })
