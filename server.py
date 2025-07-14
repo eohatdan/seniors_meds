@@ -157,21 +157,34 @@ def is_float(value):
 @app.route("/admin-reset-password", methods=["POST"])
 def admin_reset_password():
     data = request.get_json()
-    if not data:
-        return jsonify({"error": "No JSON received"}), 400
-
-    user_id = data.get("user_id")
+    email = data.get("email")
     new_password = data.get("new_password")
 
-    if not user_id or not new_password:
-        return jsonify({"error": "Missing user_id or new_password"}), 400
+    if not email or not new_password:
+        return jsonify({"error": "Missing email or new_password"}), 400
 
     try:
         supabase_url = os.getenv("SUPABASE_URL")
         service_key = os.getenv("SUPABASE_SERVICE_KEY")
 
+        # Step 1: Lookup the user by email
         import requests
-        response = requests.post(
+        lookup_response = requests.get(
+            f"{supabase_url}/auth/v1/admin/users?email={email}",
+            headers={
+                "apikey": service_key,
+                "Authorization": f"Bearer {service_key}"
+            }
+        )
+
+        if lookup_response.status_code != 200 or not lookup_response.json():
+            return jsonify({"error": "User not found"}), 404
+
+        user = lookup_response.json()[0]
+        user_id = user["id"]
+
+        # Step 2: Send the password reset
+        reset_response = requests.post(
             f"{supabase_url}/auth/v1/admin/users/{user_id}",
             headers={
                 "apikey": service_key,
@@ -181,13 +194,14 @@ def admin_reset_password():
             json={"password": new_password}
         )
 
-        if response.status_code == 200:
+        if reset_response.status_code == 200:
             return jsonify({"success": True})
         else:
-            return jsonify({"error": response.json()}), 500
+            return jsonify({"error": reset_response.json()}), 500
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
 
 
 # ========== Render Entry Point ==========
