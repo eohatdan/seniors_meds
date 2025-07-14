@@ -153,6 +153,43 @@ def is_float(value):
     except:
         return False
 
+# ========== Reset Password Endpoint ==========
+@app.route("/admin-reset-password", methods=["POST"])
+def admin_reset_password():
+    data = request.get_json()
+    if not data:
+        return jsonify({"error": "No JSON received"}), 400
+
+    user_id = data.get("user_id")
+    new_password = data.get("new_password")
+
+    if not user_id or not new_password:
+        return jsonify({"error": "Missing user_id or new_password"}), 400
+
+    try:
+        supabase_url = os.getenv("SUPABASE_URL")
+        service_key = os.getenv("SUPABASE_SERVICE_KEY")
+
+        import requests
+        response = requests.post(
+            f"{supabase_url}/auth/v1/admin/users/{user_id}",
+            headers={
+                "apikey": service_key,
+                "Authorization": f"Bearer {service_key}",
+                "Content-Type": "application/json"
+            },
+            json={"password": new_password}
+        )
+
+        if response.status_code == 200:
+            return jsonify({"success": True})
+        else:
+            return jsonify({"error": response.json()}), 500
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 # ========== Render Entry Point ==========
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
