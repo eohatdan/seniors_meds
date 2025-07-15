@@ -179,9 +179,8 @@ def admin_reset_password():
             return jsonify({"error": "User not found"}), 404
 
         # Reset the user's password
-        client.auth.admin.update_user_by_id(target_user['id'], {
-            'password': new_password
-        })
+        client.auth.admin.update_user_by_id(target_user[0]['id'], {
+    'password': new_password})
 
         return jsonify({"success": True}), 200
 
