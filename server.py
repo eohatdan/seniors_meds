@@ -155,51 +155,41 @@ def is_float(value):
         return False
 
 # ========== Reset Password Endpoint ==========
-@app.route("/admin-reset-password", methods=["POST"])
+from flask import request, jsonify
+import sys
+
+@app.route('/admin-reset-password', methods=['POST'])
 def admin_reset_password():
     data = request.get_json()
-    print("Incoming reset payload:", data)
+    email = data.get('email')
+    new_password = data.get('new_password')
 
-    if not data:
-        return jsonify({"error": "No JSON received"}), 400
-
-    email = data.get("email")
-    new_password = data.get("new_password")
+    print(f"Incoming payload: {email} / {new_password}")
+    sys.stdout.flush()
 
     if not email or not new_password:
-        return jsonify({"error": "Missing email or new_password"}), 400
+        return jsonify({"error": "Missing email or password"}), 400
 
     try:
-        # Step 1: Look up user by email
-        user_result = supabase.auth.admin.list_users(email=email)
-        user_list = user_result.get("users", []) if isinstance(user_result, dict) else []
-        if not user_list:
+        # Retrieve all users and search for the one matching the given email
+        all_users = client.auth.admin.list_users()
+        target_user = next((user for user in all_users['users'] if user['email'] == email), None)
+
+        if not target_user:
             return jsonify({"error": "User not found"}), 404
 
-        user_id = user_list[0]["id"]
+        # Reset the user's password
+        client.auth.admin.update_user_by_id(target_user['id'], {
+            'password': new_password
+        })
 
-        # Step 2: Reset password
-        supabase_url = os.getenv("SUPABASE_URL")
-        service_key = os.getenv("SUPABASE_SERVICE_KEY")
-
-        import requests
-        response = requests.post(
-            f"{supabase_url}/auth/v1/admin/users/{user_id}",
-            headers={
-                "apikey": service_key,
-                "Authorization": f"Bearer {service_key}",
-                "Content-Type": "application/json"
-            },
-            json={"password": new_password}
-        )
-
-        if response.status_code == 200:
-            return jsonify({"success": True})
-        else:
-            return jsonify({"error": response.json()}), 500
+        return jsonify({"success": True}), 200
 
     except Exception as e:
+        print("Error during password reset:", e)
+        sys.stdout.flush()
         return jsonify({"error": str(e)}), 500
+
 # ========== Render Entry Point ==========
   
 if __name__ == "__main__":
