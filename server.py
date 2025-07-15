@@ -13,7 +13,7 @@ CORS(app, origins=["https://eohatdan.github.io"])
 # Supabase setup
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_KEY")
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # OpenAI setup
 openai.api_key = os.getenv("OPENAI_API_KEY")
