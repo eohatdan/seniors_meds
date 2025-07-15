@@ -7,7 +7,8 @@ import os
 
 # Initialize app and CORS
 app = Flask(__name__)
-CORS(app)
+# CORS(app)
+CORS(app, origins=["https://eohatdan.github.io"])
 
 # Supabase setup
 SUPABASE_URL = os.getenv("SUPABASE_URL")
