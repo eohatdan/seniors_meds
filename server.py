@@ -161,7 +161,12 @@ def admin_reset_password():
             return jsonify({"error": "Missing email or new_password"}), 400
 
         user_list_response = client.auth.admin.list_users()
-        users = user_list_response.get("users", [])
+        if isinstance(user_list_response, dict):
+            users = user_list_response.get("users", [])
+        elif isinstance(user_list_response, list):
+            users = user_list_response
+        else:
+            return jsonify({"error": "Unexpected user list format."}), 500
 
         target_user_id = None
         for user in users:
