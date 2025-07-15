@@ -156,19 +156,28 @@ def is_float(value):
 # ========== Reset Password Endpoint ==========
 @app.route("/admin-reset-password", methods=["POST"])
 def admin_reset_password():
+    data = request.get_json()
     print("Incoming reset payload:", data)
 
-    data = request.get_json()
     if not data:
         return jsonify({"error": "No JSON received"}), 400
 
-    user_id = data.get("user_id")
+    email = data.get("email")
     new_password = data.get("new_password")
 
-    if not user_id or not new_password:
-        return jsonify({"error": "Missing user_id or new_password"}), 400
+    if not email or not new_password:
+        return jsonify({"error": "Missing email or new_password"}), 400
 
     try:
+        # Step 1: Look up user by email
+        user_result = supabase.auth.admin.list_users(email=email)
+        user_list = user_result.get("users", []) if isinstance(user_result, dict) else []
+        if not user_list:
+            return jsonify({"error": "User not found"}), 404
+
+        user_id = user_list[0]["id"]
+
+        # Step 2: Reset password
         supabase_url = os.getenv("SUPABASE_URL")
         service_key = os.getenv("SUPABASE_SERVICE_KEY")
 
@@ -190,8 +199,6 @@ def admin_reset_password():
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-
-
 # ========== Render Entry Point ==========
   
 if __name__ == "__main__":
