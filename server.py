@@ -175,6 +175,7 @@ def admin_reset_password():
                 break
 
         if not target_user_id:
+            console.log(user_list_response);
             return jsonify({"error": "User not found"}), 404
         console.log("user_id, email and password: ",target_user_id, user["email"], new_password);
         client.auth.admin.update_user_by_id(target_user_id, {
