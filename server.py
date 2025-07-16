@@ -6,11 +6,9 @@ import openai
 import fitz  # PyMuPDF
 from supabase import create_client
 
-# Initialize Flask app and CORS
 app = Flask(__name__)
 CORS(app, supports_credentials=True)
 
-# Supabase and OpenAI setup
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
@@ -18,7 +16,6 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 client = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 openai.api_key = OPENAI_API_KEY
 
-# ========== AI Query Endpoint ==========
 @app.route("/ask-openai", methods=["POST"])
 def ask_openai():
     data = request.get_json()
@@ -86,7 +83,6 @@ def ask_openai():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-# ========== PDF Extraction Endpoint ==========
 @app.route("/extract-readings", methods=["POST"])
 def extract_readings():
     if 'pdf' not in request.files:
@@ -147,12 +143,14 @@ def is_float(value):
     except:
         return False
 
-# ========== Reset Password Endpoint ==========
 @app.route("/admin-reset-password", methods=["POST"])
 def admin_reset_password():
     try:
-        data = request.get_json()
+        data = request.get_json(force=True)
         print("Incoming reset payload:", data)
+
+        if not isinstance(data, dict):
+            return jsonify({"error": "Invalid request format"}), 400
 
         email = data.get("email")
         new_password = data.get("new_password")
@@ -161,22 +159,17 @@ def admin_reset_password():
             return jsonify({"error": "Missing email or new_password"}), 400
 
         user_list_response = client.auth.admin.list_users()
-        if isinstance(user_list_response, dict):
-            users = user_list_response.get("users", [])
-        elif isinstance(user_list_response, list):
-            users = user_list_response
-        else:
-            return jsonify({"error": "Unexpected user list format."}), 500
+        users = user_list_response.get("users", []) if isinstance(user_list_response, dict) else user_list_response
 
-    target_user_id = None
-    for user in users:
-        if isinstance(user, dict) and user.get("email") == email:
-            target_user_id = user.get("id")
-            break
+        target_user_id = None
+        for user in users:
+            if isinstance(user, dict) and user.get("email") == email:
+                target_user_id = user.get("id")
+                break
+
         if not target_user_id:
-            print("list of users: ",user_list_response)
             return jsonify({"error": "User not found"}), 404
-        print("user_id, email and password: ",target_user_id, user["email"], new_password)
+
         client.auth.admin.update_user_by_id(target_user_id, {
             "password": new_password
         })
@@ -186,7 +179,6 @@ def admin_reset_password():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-# ========== Render Entry Point ==========
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
