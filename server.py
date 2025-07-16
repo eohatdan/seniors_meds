@@ -168,11 +168,12 @@ def admin_reset_password():
         else:
             return jsonify({"error": "Unexpected user list format."}), 500
 
-        target_user_id = None
-        for user in users:
-            if "email" in user and user["email"] == email:
-                target_user_id = user["id"]
-                break
+               target_user_id = None
+               for user in users:
+                    if isinstance(user, dict) and user.get("email") == email:
+                    target_user_id = user.get("id")
+                    break
+
 
         if not target_user_id:
             print("list of users: ",user_list_response)
