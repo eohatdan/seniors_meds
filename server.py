@@ -1,21 +1,22 @@
-
-import os
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import openai
 import fitz  # PyMuPDF
 from supabase import create_client
+import os
 
+# === Setup ===
 app = Flask(__name__)
-CORS(app, supports_credentials=True)
+CORS(app)
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-
 client = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
-openai.api_key = OPENAI_API_KEY
 
+openai.api_key = os.getenv("OPENAI_API_KEY")
+
+
+# === AI Query Endpoint ===
 @app.route("/ask-openai", methods=["POST"])
 def ask_openai():
     data = request.get_json()
@@ -24,16 +25,17 @@ def ask_openai():
 
     patient_id = data.get("patient_id")
     user_prompt = data.get("prompt")
-
     if not patient_id or not user_prompt:
         return jsonify({"error": "Missing patient_id or prompt"}), 400
 
     try:
+        # Fetch records
         meds = client.table("medicationslist").select("*").eq("patient_id", patient_id).execute().data
         health = client.table("healthRecords").select("*").eq("patient_id", patient_id).execute().data
         surgeries = client.table("surgeryHistory").select("*").eq("patient_id", patient_id).execute().data
         lab_result = client.table("lab_reports").select("*").eq("patient_id", patient_id).order("date", desc=True).limit(1).execute().data
 
+        # Build enhanced prompt
         enhanced_prompt = "Patient background:\n"
 
         if meds:
@@ -69,6 +71,7 @@ def ask_openai():
                     enhanced_prompt += line + "\n"
 
         enhanced_prompt += f"\n\nUser question: {user_prompt}"
+        print("Enhanced prompt:\n", enhanced_prompt)
 
         response = openai.chat.completions.create(
             model="gpt-4",
@@ -77,13 +80,16 @@ def ask_openai():
                 {"role": "user", "content": enhanced_prompt}
             ]
         )
+
         reply = response.choices[0].message.content
         return jsonify({"response": reply})
 
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": f"AI query failed: {str(e)}"}), 500
 
-@app.route("/extract-readings", methods=["POST"])
+
+# === PDF Lab Report Extraction Endpoint ===
+@app.route('/extract-readings', methods=['POST'])
 def extract_readings():
     if 'pdf' not in request.files:
         return jsonify({'error': 'No PDF uploaded'}), 400
@@ -96,6 +102,7 @@ def extract_readings():
         return jsonify({'readings': readings})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
 
 def extract_lab_data_from_text(text):
     lines = text.splitlines()
@@ -114,7 +121,7 @@ def extract_lab_data_from_text(text):
                     if is_float(part):
                         result = part
                         name_parts = parts[:i]
-                        remaining = parts[i+1:]
+                        remaining = parts[i + 1:]
                         if remaining and remaining[0] in ["High", "Low"]:
                             flag = remaining[0]
                             units = remaining[1] if len(remaining) > 1 else ""
@@ -136,6 +143,7 @@ def extract_lab_data_from_text(text):
                 continue
     return readings
 
+
 def is_float(value):
     try:
         float(value)
@@ -143,42 +151,30 @@ def is_float(value):
     except:
         return False
 
-@app.route("/admin-reset-password", methods=["POST"])
-def admin_reset_password():
+
+# === Password Reset via UUID (preferred) ===
+@app.route("/admin-reset-password-uuid", methods=["POST"])
+def admin_reset_password_uuid():
     try:
-        data = request.get_json(force=True)
-        print("Incoming reset payload:", data)
-
-        if not isinstance(data, dict):
-            return jsonify({"error": "Invalid request format"}), 400
-
-        email = data.get("email")
+        data = request.get_json()
+        uuid = data.get("uuid")
         new_password = data.get("new_password")
 
-        if not email or not new_password:
-            return jsonify({"error": "Missing email or new_password"}), 400
+        if not uuid or not new_password:
+            return jsonify({"error": "UUID and new password required"}), 400
 
-        user_list_response = client.auth.admin.list_users()
-        users = user_list_response.get("users", []) if isinstance(user_list_response, dict) else user_list_response
+        result = client.auth.admin.update_user_by_id(uuid, {"password": new_password})
 
-        target_user_id = None
-        for user in users:
-            if isinstance(user, dict) and user.get("email") == email:
-                target_user_id = user.get("id")
-                break
-
-        if not target_user_id:
-            return jsonify({"error": "User not found"}), 404
-
-        client.auth.admin.update_user_by_id(target_user_id, {
-            "password": new_password
-        })
-
-        return jsonify({"success": True}), 200
+        if result.user:
+            return jsonify({"message": "✅ Password reset successful"}), 200
+        else:
+            return jsonify({"error": "Update failed"}), 500
 
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": f"Reset failed: {str(e)}"}), 500
 
+
+# === Render Entry Point ===
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
