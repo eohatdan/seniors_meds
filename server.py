@@ -1,22 +1,35 @@
+import os
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import openai
 import fitz  # PyMuPDF
 from supabase import create_client
-import os
+import google.generativeai as genai # Import Gemini API library
 
-# === Setup ===
 app = Flask(__name__)
-CORS(app)
+CORS(app, supports_credentials=True)
 
+# Load API keys from environment variables
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY") # Load Gemini API Key
+
+# Initialize OpenAI client
+openai.api_key = OPENAI_API_KEY
+
+# Initialize Supabase client
 client = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
-openai.api_key = os.getenv("OPENAI_API_KEY")
+# Initialize Gemini client if API key is available
+if GEMINI_API_KEY:
+    genai.configure(api_key=GEMINI_API_KEY)
+    gemini_model = genai.GenerativeModel('gemini-2.0-flash') # Use gemini-2.0-flash as specified
+else:
+    gemini_model = None # Gemini will not be available if key is missing
+    print("Warning: GEMINI_API_KEY not found. Gemini API will not be available.")
 
 
-# === AI Query Endpoint ===
 @app.route("/ask-openai", methods=["POST"])
 def ask_openai():
     data = request.get_json()
@@ -25,17 +38,19 @@ def ask_openai():
 
     patient_id = data.get("patient_id")
     user_prompt = data.get("prompt")
+    llm_choice = data.get("llm_choice", "openai") # Get LLM choice, default to openai
+
     if not patient_id or not user_prompt:
         return jsonify({"error": "Missing patient_id or prompt"}), 400
 
     try:
-        # Fetch records
+        # --- Data Retrieval (common for both LLMs) ---
         meds = client.table("medicationslist").select("*").eq("patient_id", patient_id).execute().data
         health = client.table("healthRecords").select("*").eq("patient_id", patient_id).execute().data
         surgeries = client.table("surgeryHistory").select("*").eq("patient_id", patient_id).execute().data
+        # Note: lab_result is limited to 1, assuming only the most recent is needed for the prompt.
         lab_result = client.table("lab_reports").select("*").eq("patient_id", patient_id).order("date", desc=True).limit(1).execute().data
 
-        # Build enhanced prompt
         enhanced_prompt = "Patient background:\n"
 
         if meds:
@@ -44,18 +59,22 @@ def ask_openai():
                 enhanced_prompt += f"- {med.get('medication', '')} ({med.get('dosage', '')}, {med.get('times', '')}x/day)\n"
 
         if health:
-            hr = health[0]
-            enhanced_prompt += "\nHealth Records:\n"
-            enhanced_prompt += f"- Conditions: {hr.get('conditions', '')}\n"
-            enhanced_prompt += f"- Allergies: {hr.get('allergies', '')}\n"
-            enhanced_prompt += f"- Notes: {hr.get('notes', '')}\n"
+            # Assuming health records might return multiple, but prompt uses only the first or most relevant
+            # The original code took health[0]. Let's ensure it's safe.
+            if health:
+                hr = health[0]
+                enhanced_prompt += "\nHealth Records:\n"
+                enhanced_prompt += f"- Conditions: {hr.get('condition', '')}\n" # Corrected from 'conditions'
+                enhanced_prompt += f"- Allergies: {hr.get('allergies', '')}\n"
+                enhanced_prompt += f"- Notes: {hr.get('notes', '')}\n"
+                enhanced_prompt += f"- Date Condition Began: {hr.get('start_date', '')}\n" # Added start_date
 
         if surgeries:
             enhanced_prompt += "\nSurgical History:\n"
             for s in surgeries:
                 enhanced_prompt += (
                     f"- {s.get('surgery_name', '')} on {s.get('surgery_date', '')} at "
-                    f"{s.get('surgery_hospital', 'Unknown Hospital')} (Surgeon: {s.get('surgeon', 'Unknown')})\n"
+                    f"{s.get('hospital', 'Unknown Hospital')} (Surgeon: {s.get('surgeon', 'Unknown')})\n" # Corrected from 'surgery_hospital'
                 )
 
         if lab_result:
@@ -71,25 +90,35 @@ def ask_openai():
                     enhanced_prompt += line + "\n"
 
         enhanced_prompt += f"\n\nUser question: {user_prompt}"
-        print("Enhanced prompt:\n", enhanced_prompt)
 
-        response = openai.chat.completions.create(
-            model="gpt-4",
-            messages=[
-                {"role": "system", "content": "You are a helpful health assistant reviewing patient records."},
-                {"role": "user", "content": enhanced_prompt}
-            ]
-        )
+        # --- LLM Selection and Call ---
+        reply = ""
+        if llm_choice == "openai":
+            response = openai.chat.completions.create(
+                model="gpt-4",
+                messages=[
+                    {"role": "system", "content": "You are a helpful health assistant reviewing patient records."},
+                    {"role": "user", "content": enhanced_prompt}
+                ]
+            )
+            reply = response.choices[0].message.content
+        elif llm_choice == "gemini":
+            if gemini_model:
+                # Gemini API call
+                gemini_response = gemini_model.generate_content(enhanced_prompt)
+                reply = gemini_response.text
+            else:
+                return jsonify({"error": "Gemini API not configured. GEMINI_API_KEY might be missing."}), 500
+        else:
+            return jsonify({"error": "Invalid LLM choice provided."}), 400
 
-        reply = response.choices[0].message.content
         return jsonify({"response": reply})
 
     except Exception as e:
-        return jsonify({"error": f"AI query failed: {str(e)}"}), 500
+        print(f"Error in /ask-openai: {e}") # Log the error for debugging
+        return jsonify({"error": str(e)}), 500
 
-
-# === PDF Lab Report Extraction Endpoint ===
-@app.route('/extract-readings', methods=['POST'])
+@app.route("/extract-readings", methods=["POST"])
 def extract_readings():
     if 'pdf' not in request.files:
         return jsonify({'error': 'No PDF uploaded'}), 400
@@ -101,8 +130,8 @@ def extract_readings():
         readings = extract_lab_data_from_text(text)
         return jsonify({'readings': readings})
     except Exception as e:
+        print(f"Error in /extract-readings: {e}") # Log the error
         return jsonify({'error': str(e)}), 500
-
 
 def extract_lab_data_from_text(text):
     lines = text.splitlines()
@@ -121,7 +150,7 @@ def extract_lab_data_from_text(text):
                     if is_float(part):
                         result = part
                         name_parts = parts[:i]
-                        remaining = parts[i + 1:]
+                        remaining = parts[i+1:]
                         if remaining and remaining[0] in ["High", "Low"]:
                             flag = remaining[0]
                             units = remaining[1] if len(remaining) > 1 else ""
@@ -139,10 +168,10 @@ def extract_lab_data_from_text(text):
                         "units": units,
                         "ref_range": ref_range
                     })
-            except:
+            except Exception as e: # Catch specific errors in parsing loop
+                print(f"Error parsing line '{line}': {e}")
                 continue
     return readings
-
 
 def is_float(value):
     try:
@@ -151,30 +180,43 @@ def is_float(value):
     except:
         return False
 
-
-# === Password Reset via UUID (preferred) ===
-@app.route("/admin-reset-password-uuid", methods=["POST"])
-def admin_reset_password_uuid():
+@app.route("/admin-reset-password", methods=["POST"])
+def admin_reset_password():
     try:
-        data = request.get_json()
-        uuid = data.get("uuid")
+        data = request.get_json(force=True)
+        print("Incoming reset payload:", data)
+
+        if not isinstance(data, dict):
+            return jsonify({"error": "Invalid request format"}), 400
+
+        email = data.get("email")
         new_password = data.get("new_password")
 
-        if not uuid or not new_password:
-            return jsonify({"error": "UUID and new password required"}), 400
+        if not email or not new_password:
+            return jsonify({"error": "Missing email or new_password"}), 400
 
-        result = client.auth.admin.update_user_by_id(uuid, {"password": new_password})
+        user_list_response = client.auth.admin.list_users()
+        users = user_list_response.get("users", []) if isinstance(user_list_response, dict) else user_list_response
 
-        if result.user:
-            return jsonify({"message": "✅ Password reset successful"}), 200
-        else:
-            return jsonify({"error": "Update failed"}), 500
+        target_user_id = None
+        for user in users:
+            if isinstance(user, dict) and user.get("email") == email:
+                target_user_id = user.get("id")
+                break
+
+        if not target_user_id:
+            return jsonify({"error": "User not found"}), 404
+
+        client.auth.admin.update_user_by_id(target_user_id, {
+            "password": new_password
+        })
+
+        return jsonify({"success": True}), 200
 
     except Exception as e:
-        return jsonify({"error": f"Reset failed: {str(e)}"}), 500
+        print(f"Error in /admin-reset-password: {e}") # Log the error
+        return jsonify({"error": str(e)}), 500
 
-
-# === Render Entry Point ===
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
