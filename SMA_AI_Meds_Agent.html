@@ -28,9 +28,16 @@
       padding: 10px;
       border-radius: 6px;
       border: 1px solid #ccc;
+      box-sizing: border-box; /* Ensure padding is included in width */
     }
-    button {
+    .button-group {
+      display: flex;
+      justify-content: space-around; /* Distribute buttons evenly */
+      gap: 10px; /* Space between buttons */
       margin-top: 12px;
+    }
+    .button-group button {
+      flex: 1; /* Allow buttons to grow and shrink */
       padding: 10px 16px;
       font-size: 16px;
       background-color: #0066cc;
@@ -38,16 +45,35 @@
       border: none;
       border-radius: 8px;
       cursor: pointer;
+      white-space: nowrap; /* Prevent text wrapping on buttons */
     }
-    button:hover {
+    .button-group button:hover {
       background-color: #004999;
     }
-    .response {
+    .response-container { /* New container for all responses */
       margin-top: 20px;
-      white-space: pre-wrap;
+      border-radius: 8px;
+      overflow: hidden; /* Clear floats if any */
+    }
+    .llm-response-box { /* Style for individual LLM response boxes */
       background: #eef;
       padding: 12px;
       border-radius: 8px;
+      margin-bottom: 10px; /* Space between response boxes */
+      white-space: pre-wrap; /* Preserve whitespace and line breaks */
+      border: 1px solid #ddd;
+    }
+    .llm-response-box h3 {
+      margin-top: 0;
+      margin-bottom: 10px;
+      color: #003366;
+      font-size: 1.1em;
+      border-bottom: 1px solid #ccc;
+      padding-bottom: 5px;
+    }
+    .error-message {
+      color: red;
+      font-weight: bold;
     }
     .top-right {
       text-align: right;
@@ -64,43 +90,68 @@
     <h2>Ask AI About My Medications and Health</h2>
 
     <textarea id="question" placeholder="Type your health-related question here..."></textarea>
-    <button onclick="sendQuestion()">🔍 Ask AI</button>
+    
+    <div class="button-group">
+      <button onclick="sendQuestion('openai')">🔍 Ask OpenAI (First Opinion)</button>
+      <button onclick="sendQuestion('gemini')">✨ Ask Gemini (Second Opinion)</button>
+    </div>
 
-    <div id="response" class="response"></div>
+    <div id="response-container" class="response-container">
+      <div id="openaiResponseBox" class="llm-response-box" style="display: none;">
+        <h3>OpenAI Response:</h3>
+        <p id="openaiResponseContent"></p>
+      </div>
+      <div id="geminiResponseBox" class="llm-response-box" style="display: none;">
+        <h3>Gemini Response:</h3>
+        <p id="geminiResponseContent"></p>
+      </div>
+    </div>
   </div>
 
   <script>
-    async function sendQuestion() {
+    async function sendQuestion(llmChoice) {
       const question = document.getElementById('question').value.trim();
       const patientId = localStorage.getItem('patientUUID');
+      
+      // Select the specific content paragraph and its parent box
+      const targetContentBox = document.getElementById(`${llmChoice}ResponseBox`);
+      const targetContentParagraph = document.getElementById(`${llmChoice}ResponseContent`);
 
       if (!question) {
-        alert("Please enter a question.");
+        targetContentParagraph.textContent = "Please enter a question.";
+        targetContentParagraph.className = "error-message"; // Apply error styling
+        targetContentBox.style.display = 'block'; // Ensure box is visible for error
         return;
       }
 
-      const responseBox = document.getElementById('response');
-      responseBox.textContent = "Thinking...";
+      // Reset styling and content for the specific box
+      targetContentParagraph.textContent = `Thinking... (using ${llmChoice.toUpperCase()})`;
+      targetContentParagraph.className = ""; // Remove error styling if present
+      targetContentBox.style.display = 'block'; // Ensure the box is visible
 
       try {
         const res = await fetch("https://seniors-meds-2.onrender.com/ask-openai", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ patient_id: patientId, prompt: question })
+          body: JSON.stringify({ patient_id: patientId, prompt: question, llm_choice: llmChoice })
         });
 
         const data = await res.json();
         if (data.response) {
-          responseBox.textContent = data.response;
+          targetContentParagraph.textContent = data.response;
         } else {
-          responseBox.textContent = "AI did not return a response.";
+          targetContentParagraph.textContent = "AI did not return a response: " + (data.error || "Unknown error.");
+          targetContentParagraph.className = "error-message"; // Apply error styling
           console.log(data);
         }
       } catch (err) {
-        responseBox.textContent = "Error contacting the AI server.";
+        targetContentParagraph.textContent = "Error contacting the AI server.";
+        targetContentParagraph.className = "error-message"; // Apply error styling
         console.log("Error:", err);
       }
     }
   </script>
 </body>
 </html>
+
+      
