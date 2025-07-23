@@ -6,3 +6,4 @@ pyjwt
 python-dotenv
 requests
 git+https://github.com/supabase-community/supabase-py.git
+google-generativeai
