@@ -48,8 +48,10 @@ def ask_openai():
         meds = client.table("medicationslist").select("*").eq("patient_id", patient_id).execute().data
         health = client.table("healthRecords").select("*").eq("patient_id", patient_id).execute().data
         surgeries = client.table("surgeryHistory").select("*").eq("patient_id", patient_id).execute().data
-        # Note: lab_result is limited to 1, assuming only the most recent is needed for the prompt.
         lab_result = client.table("lab_reports").select("*").eq("patient_id", patient_id).order("date", desc=True).limit(1).execute().data
+        
+        # Retrieve vital signs data
+        vital_signs = client.table("vital_signs").select("*").eq("patient_id", patient_id).order("recorded_at", desc=True).limit(5).execute().data # Get last 5 vital sign entries
 
         enhanced_prompt = "Patient background:\n"
 
@@ -59,22 +61,20 @@ def ask_openai():
                 enhanced_prompt += f"- {med.get('medication', '')} ({med.get('dosage', '')}, {med.get('times', '')}x/day)\n"
 
         if health:
-            # Assuming health records might return multiple, but prompt uses only the first or most relevant
-            # The original code took health[0]. Let's ensure it's safe.
             if health:
                 hr = health[0]
                 enhanced_prompt += "\nHealth Records:\n"
-                enhanced_prompt += f"- Conditions: {hr.get('condition', '')}\n" # Corrected from 'conditions'
+                enhanced_prompt += f"- Conditions: {hr.get('condition', '')}\n"
                 enhanced_prompt += f"- Allergies: {hr.get('allergies', '')}\n"
                 enhanced_prompt += f"- Notes: {hr.get('notes', '')}\n"
-                enhanced_prompt += f"- Date Condition Began: {hr.get('start_date', '')}\n" # Added start_date
+                enhanced_prompt += f"- Date Condition Began: {hr.get('start_date', '')}\n"
 
         if surgeries:
             enhanced_prompt += "\nSurgical History:\n"
             for s in surgeries:
                 enhanced_prompt += (
                     f"- {s.get('surgery_name', '')} on {s.get('surgery_date', '')} at "
-                    f"{s.get('hospital', 'Unknown Hospital')} (Surgeon: {s.get('surgeon', 'Unknown')})\n" # Corrected from 'surgery_hospital'
+                    f"{s.get('hospital', 'Unknown Hospital')} (Surgeon: {s.get('surgeon', 'Unknown')})\n"
                 )
 
         if lab_result:
@@ -88,6 +88,22 @@ def ask_openai():
                     if r.get('ref_range'):
                         line += f" [Ref: {r['ref_range']}]"
                     enhanced_prompt += line + "\n"
+        
+        if vital_signs:
+            enhanced_prompt += "\nRecent Vital Signs:\n"
+            for vs in vital_signs:
+                enhanced_prompt += f"- Date: {vs.get('recorded_at', '').split('T')[0]}"
+                if vs.get('average_weight') is not None:
+                    enhanced_prompt += f", Weight: {vs.get('average_weight')} lbs"
+                if vs.get('average_glucose') is not None:
+                    enhanced_prompt += f", Glucose: {vs.get('average_glucose')} mg/dL"
+                if vs.get('average_systolic') is not None and vs.get('average_diastolic') is not None:
+                    enhanced_prompt += f", BP: {vs.get('average_systolic')}/{vs.get('average_diastolic')} mmHg"
+                if vs.get('average_oxygen') is not None:
+                    enhanced_prompt += f", O2 Sat: {vs.get('average_oxygen')}%"
+                if vs.get('notes'):
+                    enhanced_prompt += f" (Notes: {vs.get('notes')})"
+                enhanced_prompt += "\n"
 
         enhanced_prompt += f"\n\nUser question: {user_prompt}"
 
@@ -216,6 +232,72 @@ def admin_reset_password():
     except Exception as e:
         print(f"Error in /admin-reset-password: {e}") # Log the error
         return jsonify({"error": str(e)}), 500
+
+# --- New Vital Signs Endpoints ---
+
+@app.route("/vital-signs", methods=["POST"])
+def add_vital_signs():
+    data = request.get_json()
+    if not data:
+        return jsonify({"error": "No JSON received"}), 400
+
+    patient_id = data.get("patient_id")
+    recorded_at = data.get("recorded_at") # Expecting ISO format date/time string
+    
+    # Extract vital sign values, allowing them to be optional
+    average_weight = data.get("average_weight")
+    average_glucose = data.get("average_glucose")
+    average_systolic = data.get("average_systolic")
+    average_diastolic = data.get("average_diastolic")
+    average_oxygen = data.get("average_oxygen")
+    notes = data.get("notes")
+
+    if not patient_id or not recorded_at:
+        return jsonify({"error": "Missing patient_id or recorded_at"}), 400
+
+    try:
+        # Prepare payload for Supabase insert
+        payload = {
+            "patient_id": patient_id,
+            "recorded_at": recorded_at,
+            "average_weight": average_weight,
+            "average_glucose": average_glucose,
+            "average_systolic": average_systolic,
+            "average_diastolic": average_diastolic,
+            "average_oxygen": average_oxygen,
+            "notes": notes
+        }
+        
+        # Filter out None values to avoid inserting nulls if not provided
+        payload = {k: v for k, v in payload.items() if v is not None}
+
+        response = client.table("vital_signs").insert(payload).execute()
+        
+        if response.data:
+            return jsonify({"success": True, "data": response.data}), 201
+        else:
+            print(f"Supabase insert error for vital signs: {response.error}")
+            return jsonify({"error": response.error.message}), 500
+
+    except Exception as e:
+        print(f"Error in /vital-signs POST: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/vital-signs/<patient_id>", methods=["GET"])
+def get_vital_signs(patient_id):
+    try:
+        response = client.table("vital_signs").select("*").eq("patient_id", patient_id).order("recorded_at", desc=True).execute()
+        
+        if response.data:
+            return jsonify({"success": True, "data": response.data}), 200
+        else:
+            print(f"Supabase select error for vital signs: {response.error}")
+            return jsonify({"error": response.error.message}), 500
+
+    except Exception as e:
+        print(f"Error in /vital-signs GET: {e}")
+        return jsonify({"error": str(e)}), 500
+
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
