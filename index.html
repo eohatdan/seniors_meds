@@ -2,10 +2,9 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Seniors Medical Assistant</title>
+  <title>Seniors Medical Aid</title> <!-- Changed title from 'Assistant' to 'Aid' -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
   <style>
-    
     body { font-family: Arial, sans-serif; padding: 40px; text-align: center; background-color: #90D5FF; }
     h1 { margin-bottom: 40px; }
     button {
@@ -15,13 +14,94 @@
       font-size: 16px;
       cursor: pointer;
       width: 300px;
+      border-radius: 8px; /* Added consistent border-radius for buttons */
+      border: none;
+      background-color: #0066cc; /* Consistent button color */
+      color: white;
+    }
+    button:hover {
+      background-color: #004999; /* Consistent button hover color */
     }
     #features { display: none; margin-top: 30px; }
     #userEmail { color: #666; font-size: 0.9em; margin-bottom: 20px; }
+
+    /* Styles for the Disclaimer Overlay */
+    #disclaimerOverlay {
+      position: fixed; /* Stays in place */
+      z-index: 1000; /* Sits on top */
+      left: 0;
+      top: 0;
+      width: 100%; /* Full width */
+      height: 100%; /* Full height */
+      overflow: auto; /* Enable scroll if needed */
+      background-color: rgba(0,0,0,0.7); /* Black w/ opacity */
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #disclaimerContent {
+      background-color: #fefefe;
+      margin: auto;
+      padding: 30px;
+      border: 1px solid #888;
+      width: 80%;
+      max-width: 600px;
+      border-radius: 15px;
+      box-shadow: 0 4px 8px 0 rgba(0,0,0,0.2), 0 6px 20px 0 rgba(0,0,0,0.19);
+      text-align: left;
+      font-size: 1.1em;
+      line-height: 1.5;
+    }
+
+    #disclaimerContent h2 {
+      text-align: center;
+      color: #CC0000; /* Red for warning */
+      margin-bottom: 20px;
+    }
+
+    #disclaimerContent p {
+      margin-bottom: 15px;
+    }
+
+    #disclaimerAccept {
+      display: flex;
+      align-items: center;
+      margin-top: 20px;
+      justify-content: center;
+      flex-direction: column; /* Stack checkbox and button */
+      gap: 15px;
+    }
+
+    #disclaimerAccept label {
+      font-weight: bold;
+      color: #333;
+      font-size: 1em;
+      display: flex; /* Use flex for checkbox and text alignment */
+      align-items: center;
+      gap: 8px;
+    }
+
+    #disclaimerAccept input[type="checkbox"] {
+      width: auto; /* Override button/input width */
+      margin: 0; /* Remove default margins */
+      padding: 0;
+      transform: scale(1.5); /* Make checkbox larger */
+    }
+
+    #disclaimerAccept button {
+      width: auto; /* Allow button to size to content */
+      padding: 10px 30px;
+      font-size: 1.1em;
+      background-color: #4CAF50; /* Green for acceptance */
+    }
+    #disclaimerAccept button:hover {
+      background-color: #45a049;
+    }
   </style>
 </head>
 <body>
-  <h1>Seniors Medical Assistant</h1>
+  <h1>Seniors Medical Aid</h1> <!-- Changed title from 'Assistant' to 'Aid' -->
 
   <div id="userEmail"></div>
 
@@ -35,32 +115,90 @@
     <button onclick="location.href='SMA_Review_Edit_Health_Records.html'">📝 Review or Edit Health Records</button>
     <button onclick="location.href='SMA_Surgery_History.html'">🏥 Surgery History</button>
     <button onclick="location.href='SMA_Lab_Reports.html'">🧪 Review or Upload Lab Reports</button>
-    <button onclick="location.href='SMA_Update_Vital_Signs.html'">❤️ Track Vital Signs</button> <!-- New Button for Vital Signs -->
+    <button onclick="location.href='SMA_Update_Vital_Signs.html'">❤️ Track Vital Signs</button>
     <button onclick="location.href='SMA_AI_Meds_Agent.html'">🤖 Ask AI About My Medications and Health</button>
     <button onclick="location.href='SMA_Appointments.html'">📅 Manage Appointments</button>
   </div>
 
+  <!-- Disclaimer Overlay -->
+  <div id="disclaimerOverlay">
+    <div id="disclaimerContent">
+      <h2>Important Medical Disclaimer</h2>
+      <p>This application, **Seniors Medical Aid**, provides general health information and insights based on your personal health records. It is designed as an informational tool to assist in managing your health data.</p>
+      <p><strong>This app is NOT a substitute for professional medical advice, diagnosis, or treatment.</strong> Always seek the advice of your physician or other qualified health provider with any questions you may have regarding a medical condition.</p>
+      <p>Never disregard professional medical advice or delay in seeking it because of something you have read on this application.</p>
+      <p>By proceeding, you acknowledge and agree to these terms.</p>
+      <div id="disclaimerAccept">
+        <label>
+          <input type="checkbox" id="acceptDisclaimerCheckbox"> I understand and agree to the terms above.
+        </label>
+        <button id="continueBtn" disabled>Continue to App</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     const SUPABASE_URL = 'https://ixxzxenspwzrkiazepbj.supabase.co';
-    // IMPORTANT: This SUPABASE_KEY should be your Supabase 'anon' (public) key.
-    // It is designed to be public and is safe to include in client-side code.
-    // Sensitive keys (like service_role key) should ONLY be used on the backend (server.py).
     const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml4eHp4ZW5zcHd6cmtpYXplcGJqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM1MzE1NjMsImV4cCI6MjA1OTEwNzU2M30.28E41uParU4YMisV-Kxlq1KybbOdRrbKqXYKrH84COw';
     const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-    client.auth.getSession().then(({ data: { session } }) => {
-      if (session && session.user) {
-        const email = session.user.email;
-        document.getElementById('userEmail').textContent = `Logged in as: ${email}`;
-        document.getElementById('features').style.display = 'block';
-        document.getElementById('loginBtn').style.display = 'none';
-        document.getElementById('logoutBtn').style.display = 'block';
-      }
-    });
+    const disclaimerOverlay = document.getElementById('disclaimerOverlay');
+    const acceptDisclaimerCheckbox = document.getElementById('acceptDisclaimerCheckbox');
+    const continueBtn = document.getElementById('continueBtn');
+    const featuresDiv = document.getElementById('features');
+    const loginBtn = document.getElementById('loginBtn');
+    const logoutBtn = document.getElementById('logoutBtn');
+    const userEmailDiv = document.getElementById('userEmail');
+
+    // Check if disclaimer has been accepted previously (e.g., in session storage)
+    const disclaimerAccepted = sessionStorage.getItem('disclaimerAccepted');
+
+    if (disclaimerAccepted === 'true') {
+      disclaimerOverlay.style.display = 'none'; // Hide disclaimer if already accepted
+      initializeUserSession(); // Proceed directly to session check
+    } else {
+      // Show disclaimer and wait for acceptance
+      disclaimerOverlay.style.display = 'flex'; // Use flex to center content
+      acceptDisclaimerCheckbox.addEventListener('change', () => {
+        continueBtn.disabled = !acceptDisclaimerCheckbox.checked;
+      });
+
+      continueBtn.addEventListener('click', () => {
+        if (acceptDisclaimerCheckbox.checked) {
+          sessionStorage.setItem('disclaimerAccepted', 'true'); // Remember acceptance
+          disclaimerOverlay.style.display = 'none';
+          initializeUserSession(); // Proceed to session check after acceptance
+        }
+      });
+    }
+
+    function initializeUserSession() {
+      client.auth.getSession().then(({ data: { session } }) => {
+        if (session && session.user) {
+          const email = session.user.email;
+          userEmailDiv.textContent = `Logged in as: ${email}`;
+          featuresDiv.style.display = 'block';
+          loginBtn.style.display = 'none';
+          logoutBtn.style.display = 'block';
+        } else {
+          // If not logged in, show login button and hide features
+          loginBtn.style.display = 'block';
+          logoutBtn.style.display = 'none';
+          featuresDiv.style.display = 'none';
+        }
+      }).catch(err => {
+        console.error("Error getting session:", err);
+        // Fallback to showing login if session check fails
+        loginBtn.style.display = 'block';
+        logoutBtn.style.display = 'none';
+        featuresDiv.style.display = 'none';
+      });
+    }
 
     function logout() {
       client.auth.signOut().then(() => {
         console.log("Signed out.");
+        sessionStorage.removeItem('disclaimerAccepted'); // Clear disclaimer acceptance on logout
         window.location.href = "SMA_Secure_Login.html";
       }).catch(err => {
         console.error("Error signing out user:", err);
