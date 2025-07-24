@@ -35,12 +35,16 @@
     <button onclick="location.href='SMA_Review_Edit_Health_Records.html'">📝 Review or Edit Health Records</button>
     <button onclick="location.href='SMA_Surgery_History.html'">🏥 Surgery History</button>
     <button onclick="location.href='SMA_Lab_Reports.html'">🧪 Review or Upload Lab Reports</button>
+    <button onclick="location.href='SMA_Update_Vital_Signs.html'">❤️ Track Vital Signs</button> <!-- New Button for Vital Signs -->
     <button onclick="location.href='SMA_AI_Meds_Agent.html'">🤖 Ask AI About My Medications and Health</button>
     <button onclick="location.href='SMA_Appointments.html'">📅 Manage Appointments</button>
   </div>
 
   <script>
     const SUPABASE_URL = 'https://ixxzxenspwzrkiazepbj.supabase.co';
+    // IMPORTANT: This SUPABASE_KEY should be your Supabase 'anon' (public) key.
+    // It is designed to be public and is safe to include in client-side code.
+    // Sensitive keys (like service_role key) should ONLY be used on the backend (server.py).
     const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml4eHp4ZW5zcHd6cmtpYXplcGJqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM1MzE1NjMsImV4cCI6MjA1OTEwNzU2M30.28E41uParU4YMisV-Kxlq1KybbOdRrbKqXYKrH84COw';
     const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
