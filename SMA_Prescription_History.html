@@ -1,0 +1,599 @@
+import React, { useState, useEffect, useCallback } from 'react';
+import { createClient } from '@supabase/supabase-js';
+
+// IMPORTANT: Replace with your actual Supabase URL and Anon Key
+// You can find these in your Supabase project settings under API.
+const SUPABASE_URL = 'https://ixxzxenspwzrkiazepbj.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml4eHp4ZW5zcHd6cmtpYXplcGJqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM1MzE1NjMsImV4cCI6MjA1OTEwNzU2M30.28E41uParU4YMisV-Kxlq1KybbOdRrbKqXYKrH84COw';
+
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// Main App component for the SMA_Prescription_History module
+function App() {
+  const [userId, setUserId] = useState(null);
+  const [prescriptions, setPrescriptions] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [editingPrescription, setEditingPrescription] = useState(null); // Stores the prescription being edited
+  const [showForm, setShowForm] = useState(false); // Controls visibility of the add/edit form
+  const [message, setMessage] = useState(''); // For user feedback messages
+
+  // State for the form inputs
+  const [formData, setFormData] = useState({
+    start_date: '',
+    end_date: '',
+    rx_name: '',
+    dosage: '',
+    pharmacy: '',
+    prescriber: '',
+    number_of_refills: '',
+    last_refill_date: '',
+    next_refill_date: '',
+    instructions: '',
+    notes: '',
+    reason: '',
+    rx_number: '',
+    status: 'Active',
+  });
+
+  // Function to handle form input changes
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData((prevData) => ({
+      ...prevData,
+      [name]: value,
+    }));
+  };
+
+  // Authenticate user (using anonymous sign-in for demonstration)
+  // In a real app, you'd integrate with Supabase Auth for user login/signup.
+  useEffect(() => {
+    const authenticateUser = async () => {
+      try {
+        const { data, error: authError } = await supabase.auth.signInAnonymously();
+        if (authError) throw authError;
+        setUserId(data.user.id);
+        console.log('Authenticated user ID:', data.user.id);
+      } catch (error) {
+        console.error('Error authenticating:', error.message);
+        setError('Failed to authenticate. Please check Supabase configuration.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    authenticateUser();
+  }, []);
+
+  // Fetch prescriptions in real-time using Supabase subscriptions (onSnapshot equivalent)
+  const fetchPrescriptions = useCallback(async () => {
+    if (!userId) return;
+
+    setLoading(true);
+    try {
+      const { data, error: fetchError } = await supabase
+        .from('prescription_history')
+        .select('*')
+        .eq('user_id', userId)
+        .order('start_date', { ascending: false });
+
+      if (fetchError) throw fetchError;
+      setPrescriptions(data);
+      setError(null);
+    } catch (error) {
+      console.error('Error fetching prescriptions:', error.message);
+      setError('Failed to load prescriptions. Please try again.');
+      setPrescriptions([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [userId]); // Depend on userId
+
+  useEffect(() => {
+    if (!userId) return;
+
+    // Initial fetch when userId is available
+    fetchPrescriptions();
+
+    // Set up real-time subscription
+    const subscription = supabase
+      .from('prescription_history')
+      .on('*', (payload) => {
+        console.log('Change received!', payload);
+        fetchPrescriptions(); // Re-fetch all data on any change
+      })
+      .subscribe();
+
+    // Cleanup subscription on component unmount
+    return () => {
+      supabase.removeSubscription(subscription);
+    };
+  }, [userId, fetchPrescriptions]); // Re-run when userId or fetchPrescriptions changes
+
+  // Function to show the form for adding a new prescription
+  const handleAddClick = () => {
+    setEditingPrescription(null); // Clear any existing editing state
+    setFormData({ // Reset form data for new entry
+      start_date: '', end_date: '', rx_name: '', dosage: '', pharmacy: '',
+      prescriber: '', number_of_refills: '', last_refill_date: '',
+      next_refill_date: '', instructions: '', notes: '', reason: '',
+      rx_number: '', status: 'Active',
+    });
+    setShowForm(true);
+  };
+
+  // Function to show the form for editing an existing prescription
+  const handleEditClick = (prescription) => {
+    setEditingPrescription(prescription);
+    setFormData({
+      start_date: prescription.start_date || '',
+      end_date: prescription.end_date || '',
+      rx_name: prescription.rx_name || '',
+      dosage: prescription.dosage || '',
+      pharmacy: prescription.pharmacy || '',
+      prescriber: prescription.prescriber || '',
+      number_of_refills: prescription.number_of_refills || '',
+      last_refill_date: prescription.last_refill_date || '',
+      next_refill_date: prescription.next_refill_date || '',
+      instructions: prescription.instructions || '',
+      notes: prescription.notes || '',
+      reason: prescription.reason || '',
+      rx_number: prescription.rx_number || '',
+      status: prescription.status || 'Active',
+    });
+    setShowForm(true);
+  };
+
+  // Function to submit the form (add or update)
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setMessage('');
+
+    try {
+      if (editingPrescription) {
+        // Update existing prescription
+        const { error: updateError } = await supabase
+          .from('prescription_history')
+          .update(formData)
+          .eq('id', editingPrescription.id)
+          .eq('user_id', userId); // Ensure user owns the record
+
+        if (updateError) throw updateError;
+        setMessage('Prescription updated successfully!');
+      } else {
+        // Add new prescription
+        const { error: insertError } = await supabase
+          .from('prescription_history')
+          .insert({ ...formData, user_id: userId }); // Attach user_id
+
+        if (insertError) throw insertError;
+        setMessage('Prescription added successfully!');
+      }
+      setShowForm(false); // Hide form after submission
+      setEditingPrescription(null); // Clear editing state
+    } catch (error) {
+      console.error('Error saving prescription:', error.message);
+      setError(`Failed to save prescription: ${error.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Function to delete a prescription
+  const handleDelete = async (id) => {
+    // Using a custom modal/dialog for confirmation instead of window.confirm()
+    // For this example, we'll use a simple alert for brevity, but a custom UI is recommended.
+    const isConfirmed = window.confirm('Are you sure you want to delete this prescription?');
+    if (!isConfirmed) {
+      return; // User cancelled
+    }
+    setLoading(true);
+    setMessage('');
+    try {
+      const { error: deleteError } = await supabase
+        .from('prescription_history')
+        .delete()
+        .eq('id', id)
+        .eq('user_id', userId); // Ensure user owns the record
+
+      if (deleteError) throw deleteError;
+      setMessage('Prescription deleted successfully!');
+    } catch (error) {
+      console.error('Error deleting prescription:', error.message);
+      setError(`Failed to delete prescription: ${error.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Placeholder for returning to main menu
+  const handleReturnToMainMenu = () => {
+    // In a larger application, this would trigger a navigation event,
+    // e.g., using React Router, or a state change in a parent component.
+    // For this standalone module, it's just a placeholder.
+    setMessage('Returning to Main Menu (functionality not implemented in this standalone module).');
+    console.log('Returning to Main Menu...');
+  };
+
+  // Component for displaying a single prescription item
+  const PrescriptionItem = ({ prescription }) => (
+    <div className="bg-white p-4 rounded-lg shadow-md mb-4 border border-gray-200 flex flex-col md:flex-row justify-between items-start md:items-center">
+      <div className="flex-grow mb-2 md:mb-0">
+        <h3 className="text-xl font-semibold text-blue-700 mb-1">{prescription.rx_name} - {prescription.dosage}</h3>
+        <p className="text-gray-700 text-base">
+          **Status:** <span className={`font-medium ${prescription.status === 'Active' ? 'text-green-600' : 'text-red-600'}`}>{prescription.status}</span>
+        </p>
+        <p className="text-gray-600 text-sm">
+          **Prescriber:** {prescription.prescriber || 'N/A'} | **Pharmacy:** {prescription.pharmacy || 'N/A'}
+        </p>
+        <p className="text-gray-600 text-sm">
+          **Dates:** {prescription.start_date} to {prescription.end_date || 'Ongoing'}
+        </p>
+        {prescription.reason && (
+          <p className="text-gray-600 text-sm">**Reason:** {prescription.reason}</p>
+        )}
+        {prescription.instructions && (
+          <p className="text-gray-600 text-sm">**Instructions:** {prescription.instructions}</p>
+        )}
+        {prescription.notes && (
+          <p className="text-gray-600 text-sm">**Notes:** {prescription.notes}</p>
+        )}
+        {prescription.rx_number && (
+          <p className="text-gray-600 text-sm">**Rx #:** {prescription.rx_number}</p>
+        )}
+        {prescription.number_of_refills !== null && (
+          <p className="text-gray-600 text-sm">**Refills:** {prescription.number_of_refills} remaining</p>
+        )}
+        {prescription.next_refill_date && (
+          <p className="text-gray-600 text-sm">**Next Refill:** {prescription.next_refill_date}</p>
+        )}
+      </div>
+      <div className="flex flex-col space-y-2 md:space-y-0 md:space-x-2 md:flex-row">
+        <button
+          onClick={() => handleEditClick(prescription)}
+          className="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-4 rounded-md shadow-md transition duration-300 ease-in-out w-full md:w-auto"
+        >
+          Edit
+        </button>
+        <button
+          onClick={() => handleDelete(prescription.id)}
+          className="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-md shadow-md transition duration-300 ease-in-out w-full md:w-auto"
+        >
+          Delete
+        </button>
+      </div>
+    </div>
+  );
+
+  // Form component for adding/editing prescriptions
+  const PrescriptionForm = ({ formData, handleInputChange, handleSubmit, onClose, isEditing }) => (
+    <div className="fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center p-4 z-50">
+      <div className="bg-white p-6 rounded-lg shadow-xl max-w-2xl w-full overflow-y-auto max-h-[90vh]">
+        <h2 className="text-2xl font-bold text-gray-800 mb-6">
+          {isEditing ? 'Edit Prescription' : 'Add New Prescription'}
+        </h2>
+        <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Rx Name */}
+          <div>
+            <label htmlFor="rx_name" className="block text-gray-700 text-sm font-bold mb-2">
+              Medication Name <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              id="rx_name"
+              name="rx_name"
+              value={formData.rx_name}
+              onChange={handleInputChange}
+              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+              required
+            />
+          </div>
+
+          {/* Dosage */}
+          <div>
+            <label htmlFor="dosage" className="block text-gray-700 text-sm font-bold mb-2">
+              Dosage <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              id="dosage"
+              name="dosage"
+              value={formData.dosage}
+              onChange={handleInputChange}
+              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+              required
+            />
+          </div>
+
+          {/* Start Date */}
+          <div>
+            <label htmlFor="start_date" className="block text-gray-700 text-sm font-bold mb-2">
+              Start Date <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="date"
+              id="start_date"
+              name="start_date"
+              value={formData.start_date}
+              onChange={handleInputChange}
+              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+              required
+            />
+          </div>
+
+          {/* End Date */}
+          <div>
+            <label htmlFor="end_date" className="block text-gray-700 text-sm font-bold mb-2">
+              End Date
+            </label>
+            <input
+              type="date"
+              id="end_date"
+              name="end_date"
+              value={formData.end_date}
+              onChange={handleInputChange}
+              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+            />
+          </div>
+
+          {/* Status */}
+          <div>
+            <label htmlFor="status" className="block text-gray-700 text-sm font-bold mb-2">
+              Status <span className="text-red-500">*</span>
+            </label>
+            <select
+              id="status"
+              name="status"
+              value={formData.status}
+              onChange={handleInputChange}
+              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+              required
+            >
+              <option value="Active">Active</option>
+              <option value="Discontinued">Discontinued</option>
+              <option value="Completed">Completed</option>
+            </select>
+          </div>
+
+          {/* Pharmacy */}
+          <div>
+            <label htmlFor="pharmacy" className="block text-gray-700 text-sm font-bold mb-2">
+              Pharmacy
+            </label>
+            <input
+              type="text"
+              id="pharmacy"
+              name="pharmacy"
+              value={formData.pharmacy}
+              onChange={handleInputChange}
+              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+            />
+          </div>
+
+          {/* Prescriber */}
+          <div>
+            <label htmlFor="prescriber" className="block text-gray-700 text-sm font-bold mb-2">
+              Prescriber
+            </label>
+            <input
+              type="text"
+              id="prescriber"
+              name="prescriber"
+              value={formData.prescriber}
+              onChange={handleInputChange}
+              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+            />
+          </div>
+
+          {/* Number of Refills */}
+          <div>
+            <label htmlFor="number_of_refills" className="block text-gray-700 text-sm font-bold mb-2">
+              Number of Refills
+            </label>
+            <input
+              type="number"
+              id="number_of_refills"
+              name="number_of_refills"
+              value={formData.number_of_refills}
+              onChange={handleInputChange}
+              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+            />
+          </div>
+
+          {/* Last Refill Date */}
+          <div>
+            <label htmlFor="last_refill_date" className="block text-gray-700 text-sm font-bold mb-2">
+              Last Refill Date
+            </label>
+            <input
+              type="date"
+              id="last_refill_date"
+              name="last_refill_date"
+              value={formData.last_refill_date}
+              onChange={handleInputChange}
+              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+            />
+          </div>
+
+          {/* Next Refill Date */}
+          <div>
+            <label htmlFor="next_refill_date" className="block text-gray-700 text-sm font-bold mb-2">
+              Next Refill Date
+            </label>
+            <input
+              type="date"
+              id="next_refill_date"
+              name="next_refill_date"
+              value={formData.next_refill_date}
+              onChange={handleInputChange}
+              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+            />
+          </div>
+
+          {/* Instructions */}
+          <div className="md:col-span-2">
+            <label htmlFor="instructions" className="block text-gray-700 text-sm font-bold mb-2">
+              Instructions
+            </label>
+            <textarea
+              id="instructions"
+              name="instructions"
+              value={formData.instructions}
+              onChange={handleInputChange}
+              rows="3"
+              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+            ></textarea>
+          </div>
+
+          {/* Notes */}
+          <div className="md:col-span-2">
+            <label htmlFor="notes" className="block text-gray-700 text-sm font-bold mb-2">
+              Notes
+            </label>
+            <textarea
+              id="notes"
+              name="notes"
+              value={formData.notes}
+              onChange={handleInputChange}
+              rows="3"
+              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+            ></textarea>
+          </div>
+
+          {/* Reason */}
+          <div>
+            <label htmlFor="reason" className="block text-gray-700 text-sm font-bold mb-2">
+              Reason
+            </label>
+            <input
+              type="text"
+              id="reason"
+              name="reason"
+              value={formData.reason}
+              onChange={handleInputChange}
+              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+            />
+          </div>
+
+          {/* Rx Number */}
+          <div>
+            <label htmlFor="rx_number" className="block text-gray-700 text-sm font-bold mb-2">
+              Rx Number
+            </label>
+            <input
+              type="text"
+              id="rx_number"
+              name="rx_number"
+              value={formData.rx_number}
+              onChange={handleInputChange}
+              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+            />
+          </div>
+
+          {/* Form Actions */}
+          <div className="md:col-span-2 flex justify-end space-x-4 mt-6">
+            <button
+              type="button"
+              onClick={onClose}
+              className="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded-md shadow-md transition duration-300 ease-in-out"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md shadow-md transition duration-300 ease-in-out"
+              disabled={loading}
+            >
+              {loading ? 'Saving...' : (isEditing ? 'Update Prescription' : 'Add Prescription')}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+
+
+  if (loading && !userId) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gray-100">
+        <p className="text-xl text-gray-700">Loading application...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-red-100 text-red-800 p-4 rounded-md">
+        <p className="text-xl font-semibold">Error: {error}</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-100 p-4 sm:p-6 lg:p-8 font-sans">
+      <div className="max-w-4xl mx-auto">
+        <h1 className="text-3xl sm:text-4xl font-extrabold text-center text-blue-800 mb-8 rounded-lg p-3 bg-white shadow-lg">
+          SMA Prescription History
+        </h1>
+
+        {/* User ID Display - MANDATORY for multi-user apps */}
+        <div className="bg-blue-50 border border-blue-200 text-blue-800 p-3 rounded-md mb-6 text-center shadow-sm">
+          <p className="text-sm">
+            **Your User ID:** <span className="font-mono text-blue-900 break-all">{userId}</span>
+          </p>
+        </div>
+
+        {message && (
+          <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative mb-4" role="alert">
+            <span className="block sm:inline">{message}</span>
+          </div>
+        )}
+
+        <div className="flex justify-between items-center mb-6">
+          <button
+            onClick={handleAddClick}
+            className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg transition duration-300 ease-in-out transform hover:scale-105"
+          >
+            Add New Prescription
+          </button>
+          {/* Placeholder for Return to Main Menu button */}
+          <button
+            onClick={handleReturnToMainMenu}
+            className="bg-gray-600 hover:bg-gray-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg transition duration-300 ease-in-out transform hover:scale-105"
+          >
+            Return to Main Menu
+          </button>
+        </div>
+
+        {loading && prescriptions.length === 0 ? (
+          <div className="text-center text-gray-600 text-lg">Loading prescriptions...</div>
+        ) : (
+          <div className="space-y-4">
+            {prescriptions.length === 0 ? (
+              <div className="bg-white p-6 rounded-lg shadow-md text-center text-gray-600 text-lg">
+                No prescription history found. Click "Add New Prescription" to get started!
+              </div>
+            ) : (
+              prescriptions.map((rx) => (
+                <PrescriptionItem key={rx.id} prescription={rx} />
+              ))
+            )}
+          </div>
+        )}
+
+        {showForm && (
+          <PrescriptionForm
+            formData={formData}
+            handleInputChange={handleInputChange}
+            handleSubmit={handleSubmit}
+            onClose={() => setShowForm(false)}
+            isEditing={!!editingPrescription}
+          />
+        )}
+      </div>
+    </div>
+  );
+}
+
+export default App;
