@@ -182,7 +182,7 @@
         // Corrected syntax: Directly use createClient from the global Supabase object
         // const { createClient } = window.Supabase;
         // const client = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-        const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        const client = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
         let currentUserId = null;
         let isSaving = false; // To prevent multiple submissions
 
