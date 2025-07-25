@@ -32,7 +32,7 @@
             scrollbar-width: none;  /* Firefox */
         }
     </style>
-    <!-- Supabase JS CDN - MOVED TO HEAD -->
+    <!-- IMPORTANT: Supabase JS CDN should be loaded BEFORE your custom script -->
     <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
 </head>
 <body class="bg-gray-100">
@@ -55,7 +55,7 @@
             </div>
 
             <!-- Error Area -->
-            <div id="errorArea" class="hidden bg-red-100 border red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
+            <div id="errorArea" class="hidden bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
                 <span id="errorText" class="block sm:inline"></span>
             </div>
 
@@ -179,7 +179,8 @@
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml4eHp4ZW5zcHd6cmtpYXplcGJqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM1MzE1NjMsImV4cCI6MjA1OTEwNzU2M30.28E41uParU4YMisV-Kxlq1KybbOdRrbKqXYKrH84COw';
 
         // Changed variable name from 'supabase' to 'client'
-        const client = Supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        // Access window.Supabase to ensure the global object from the CDN is used
+        const client = window.Supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
         let currentUserId = null;
         let isSaving = false; // To prevent multiple submissions
@@ -288,7 +289,7 @@
 
             setLoadingState(true);
             try {
-                const { data, error } = await client // Changed from supabase.from to client.from
+                const { data, error } = await client
                     .from('prescription_history')
                     .select('*')
                     .eq('user_id', currentUserId)
@@ -396,7 +397,7 @@
             }
             setLoadingState(true);
             try {
-                const { error } = await client // Changed from supabase.from to client.from
+                const { error } = await client
                     .from('prescription_history')
                     .delete()
                     .eq('id', id)
@@ -440,7 +441,7 @@
             try {
                 if (id) {
                     // Update existing prescription
-                    const { error } = await client // Changed from supabase.from to client.from
+                    const { error } = await client
                         .from('prescription_history')
                         .update(formData)
                         .eq('id', id)
@@ -450,7 +451,7 @@
                     showMessage('Prescription updated successfully!');
                 } else {
                     // Add new prescription
-                    const { error } = await client // Changed from supabase.from to client.from
+                    const { error } = await client
                         .from('prescription_history')
                         .insert({ ...formData, user_id: currentUserId }); // Attach user_id
 
@@ -471,13 +472,14 @@
         document.addEventListener('DOMContentLoaded', async () => {
             setLoadingState(true);
             try {
-                const { data, error } = await client.auth.signInAnonymously(); // Changed from supabase.auth to client.auth
+                // Use client.auth to access authentication methods
+                const { data, error } = await client.auth.signInAnonymously();
                 if (error) throw error;
                 currentUserId = data.user.id;
                 userIdDisplay.textContent = currentUserId;
 
                 // Set up real-time subscription
-                client // Changed from supabase.from to client.from
+                client
                     .from('prescription_history')
                     .on('*', (payload) => {
                         console.log('Realtime change received:', payload);
