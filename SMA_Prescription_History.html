@@ -55,7 +55,7 @@
             </div>
 
             <!-- Error Area -->
-            <div id="errorArea" class="hidden bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
+            <div id="errorArea" class="hidden bg-red-100 border red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
                 <span id="errorText" class="block sm:inline"></span>
             </div>
 
@@ -178,7 +178,8 @@
         const SUPABASE_URL = 'https://ixxzxenspwzrkiazepbj.supabase.co';
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml4eHp4ZW5zcHd6cmtpYXplcGJqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM1MzE1NjMsImV4cCI6MjA1OTEwNzU2M30.28E41uParU4YMisV-Kxlq1KybbOdRrbKqXYKrH84COw';
 
-        const supabase = Supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        // Changed variable name from 'supabase' to 'client'
+        const client = Supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
         let currentUserId = null;
         let isSaving = false; // To prevent multiple submissions
@@ -287,7 +288,7 @@
 
             setLoadingState(true);
             try {
-                const { data, error } = await supabase
+                const { data, error } = await client // Changed from supabase.from to client.from
                     .from('prescription_history')
                     .select('*')
                     .eq('user_id', currentUserId)
@@ -395,7 +396,7 @@
             }
             setLoadingState(true);
             try {
-                const { error } = await supabase
+                const { error } = await client // Changed from supabase.from to client.from
                     .from('prescription_history')
                     .delete()
                     .eq('id', id)
@@ -439,7 +440,7 @@
             try {
                 if (id) {
                     // Update existing prescription
-                    const { error } = await supabase
+                    const { error } = await client // Changed from supabase.from to client.from
                         .from('prescription_history')
                         .update(formData)
                         .eq('id', id)
@@ -449,7 +450,7 @@
                     showMessage('Prescription updated successfully!');
                 } else {
                     // Add new prescription
-                    const { error } = await supabase
+                    const { error } = await client // Changed from supabase.from to client.from
                         .from('prescription_history')
                         .insert({ ...formData, user_id: currentUserId }); // Attach user_id
 
@@ -470,13 +471,13 @@
         document.addEventListener('DOMContentLoaded', async () => {
             setLoadingState(true);
             try {
-                const { data, error } = await supabase.auth.signInAnonymously();
+                const { data, error } = await client.auth.signInAnonymously(); // Changed from supabase.auth to client.auth
                 if (error) throw error;
                 currentUserId = data.user.id;
                 userIdDisplay.textContent = currentUserId;
 
                 // Set up real-time subscription
-                supabase
+                client // Changed from supabase.from to client.from
                     .from('prescription_history')
                     .on('*', (payload) => {
                         console.log('Realtime change received:', payload);
