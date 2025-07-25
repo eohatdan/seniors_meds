@@ -178,9 +178,9 @@
         const SUPABASE_URL = 'https://ixxzxenspwzrkiazepbj.supabase.co';
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml4eHp4ZW5zcHd6cmtpYXplcGJqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM1MzE1NjMsImV4cCI6MjA1OTEwNzU2M30.28E41uParU4YMisV-Kxlq1KybbOdRrbKqXYKrH84COw';
 
-        // Changed variable name from 'supabase' to 'client'
-        // Access window.Supabase to ensure the global object from the CDN is used
-        const client = window.Supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        // Corrected syntax: Directly use createClient from the global Supabase object
+        const { createClient } = window.Supabase;
+        const client = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
         let currentUserId = null;
         let isSaving = false; // To prevent multiple submissions
