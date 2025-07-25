@@ -33,7 +33,6 @@
         }
     </style>
     <!-- IMPORTANT: Supabase JS CDN should be loaded BEFORE your custom script -->
-    // <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
 </head>
 <body class="bg-gray-100">
@@ -177,12 +176,11 @@
         // IMPORTANT: Replace with your actual Supabase URL and Anon Key
         // You can find these in your Supabase project settings under API.
         const SUPABASE_URL = 'https://ixxzxenspwzrkiazepbj.supabase.co';
-        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml4eHp4ZW5zcHd6cmtpYXplcGJqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM1MzE1NjMsImV4cCI6MjA1OTEwNzU2M30.28E41uParU4YMisV-Kxlq1KybbOdRrbKqXYKrH84COw';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml4eHp4ZW5zcHd6cmtpYXplcGJqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM1MzE1NjMsImV4cCI6MjA1OTEwNzU2M30.28E41uParU4YMisV-Kxlq1KybbOdRrbKqXYKrH84COw';
 
-        // Corrected syntax: Directly use createClient from the global Supabase object
-        // const { createClient } = window.Supabase;
-        // const client = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-        const client = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        // Corrected syntax: Using 'supabase.createClient' directly as in SMA_Lab_Reports.html
+        const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
         let currentUserId = null;
         let isSaving = false; // To prevent multiple submissions
 
