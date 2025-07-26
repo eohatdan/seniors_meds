@@ -364,12 +364,8 @@
         cancelFormBtn.onclick = () => hideFormModal();
 
         returnToMainMenuBtn.onclick = () => {
-            // In a larger application, this would trigger a navigation event,
-            // e.g., using window.location.href to go back to a main index or dashboard.
-            // For this standalone module, it's just a placeholder.
-            showMessage('Returning to Main Menu (functionality not implemented in this standalone module).');
-            console.log('Returning to Main Menu...');
-            // Example: window.location.href = 'index.html';
+            // This will now correctly navigate back to index.html
+            window.location.href = 'index.html';
         };
 
         async function handleEdit(id, prescriptions) {
@@ -486,15 +482,6 @@
                 }
                 currentUserId = patientId;
                 userIdDisplay.textContent = currentUserId;
-
-                // Removed real-time subscription as it caused issues and is not in SMA_Lab_Reports.html
-                // client
-                //     .from('prescription_history')
-                //     .on('*', (payload) => {
-                //         console.log('Realtime change received:', payload);
-                //         fetchPrescriptions(); // Re-fetch all data on any change
-                //     })
-                //     .subscribe();
 
                 fetchPrescriptions(); // Initial fetch
             } catch (error) {
