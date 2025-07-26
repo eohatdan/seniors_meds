@@ -33,7 +33,7 @@
         }
     </style>
     <!-- IMPORTANT: Supabase JS CDN should be loaded BEFORE your custom script -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
 </head>
 <body class="bg-gray-100">
     <div class="min-h-screen bg-gray-100 p-4 sm:p-6 lg:p-8 font-sans">
@@ -178,7 +178,7 @@
         const SUPABASE_URL = 'https://ixxzxenspwzrkiazepbj.supabase.co';
         const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml4eHp4ZW5zcHd6cmtpYXplcGJqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM1MzE1NjMsImV4cCI6MjA1OTEwNzU2M30.28E41uParU4YMisV-Kxlq1KybbOdRrbKqXYKrH84COw';
 
-        // Corrected syntax: Using 'supabase.createClient' directly as in SMA_Lab_Reports.html
+        // Supabase client initialization using the same pattern as SMA_Lab_Reports.html
         const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
         let currentUserId = null;
@@ -364,8 +364,12 @@
         cancelFormBtn.onclick = () => hideFormModal();
 
         returnToMainMenuBtn.onclick = () => {
+            // In a larger application, this would trigger a navigation event,
+            // e.g., using window.location.href to go back to a main index or dashboard.
+            // For this standalone module, it's just a placeholder.
             showMessage('Returning to Main Menu (functionality not implemented in this standalone module).');
             console.log('Returning to Main Menu...');
+            // Example: window.location.href = 'index.html';
         };
 
         async function handleEdit(id, prescriptions) {
@@ -471,10 +475,16 @@
         document.addEventListener('DOMContentLoaded', async () => {
             setLoadingState(true);
             try {
-                // Use client.auth to access authentication methods
-                const { data, error } = await client.auth.signInAnonymously();
-                if (error) throw error;
-                currentUserId = data.user.id;
+                // Use the same patientId logic as SMA_Lab_Reports.html
+                let patientId = localStorage.getItem('patientUUID');
+                if (!patientId) {
+                    patientId = crypto.randomUUID(); // Generate a new UUID if not found
+                    localStorage.setItem('patientUUID', patientId);
+                    console.log('Generated new patient UUID:', patientId);
+                } else {
+                    console.log('Retrieved patient UUID:', patientId);
+                }
+                currentUserId = patientId;
                 userIdDisplay.textContent = currentUserId;
 
                 // Set up real-time subscription
