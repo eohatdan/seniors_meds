@@ -28,7 +28,7 @@
       margin-top: 12px;
       font-weight: bold;
     }
-    input, button {
+    input, button, textarea { /* Added textarea */
       margin-top: 6px;
       width: 100%;
       padding: 10px;
@@ -68,6 +68,10 @@
       text-align: right;
       margin-bottom: 10px;
     }
+    textarea {
+      min-height: 200px; /* Make textarea larger */
+      resize: vertical; /* Allow vertical resizing */
+    }
   </style>
 </head>
 <body>
@@ -85,7 +89,9 @@
 
     <button onclick="uploadAndExtract()">📤 Upload and Extract</button>
 
-    <div id="jsonPreview" style="margin-top: 20px;"></div>
+    <div id="jsonPreview" style="margin-top: 20px;">
+      <h4>Extracted Readings (Edit below before saving)</h4>
+      <textarea id="readingsEditor" style="display: none;"></textarea> </div>
 
     <button id="saveBtn" style="display: none;" onclick="saveToSupabase()">💾 Save to Supabase</button>
 
@@ -106,11 +112,14 @@
     const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml4eHp4ZW5zcHd6cmtpYXplcGJqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM1MzE1NjMsImV4cCI6MjA1OTEwNzU2M30.28E41uParU4YMisV-Kxlq1KybbOdRrbKqXYKrH84COw';
     const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
     const patientId = localStorage.getItem('patientUUID');
-    let currentReadings = null;
+    // currentReadings will now be managed by the textarea content
+    // let currentReadings = null; 
 
     async function uploadAndExtract() {
       const fileInput = document.getElementById('labFile');
       const dateInput = document.getElementById('labDate');
+      const readingsEditor = document.getElementById('readingsEditor');
+      const saveBtn = document.getElementById('saveBtn');
 
       if (!fileInput.files.length || !dateInput.value) {
         alert('Please select a date and a PDF file.');
@@ -127,26 +136,39 @@
 
       const result = await response.json();
       if (result.readings) {
-        currentReadings = result.readings;
-        document.getElementById('jsonPreview').innerHTML =
-          '<h4>Extracted Readings</h4><pre>' +
-          JSON.stringify(result.readings, null, 2) +
-          '</pre>';
-        document.getElementById('saveBtn').style.display = 'block';
+        // Populate the textarea with the extracted readings
+        readingsEditor.value = JSON.stringify(result.readings, null, 2);
+        readingsEditor.style.display = 'block'; // Make textarea visible
+        saveBtn.style.display = 'block'; // Show save button
+        // Remove the old pre tag display, as we're using textarea now
+        document.getElementById('jsonPreview').querySelector('pre')?.remove(); 
       } else {
         alert('Extraction failed.');
         console.log(result);
+        readingsEditor.style.display = 'none'; // Hide textarea on failure
+        saveBtn.style.display = 'none'; // Hide save button on failure
       }
     }
 
     async function saveToSupabase() {
       const date = document.getElementById('labDate').value;
+      const readingsEditor = document.getElementById('readingsEditor');
+      let readingsToSave = null;
+
+      try {
+        // Parse the JSON from the editable textarea
+        readingsToSave = JSON.parse(readingsEditor.value);
+      } catch (e) {
+        alert('Error: The JSON in the editor is invalid. Please correct it before saving.');
+        console.error('JSON parsing error:', e);
+        return;
+      }
 
       const { error } = await client.from('lab_reports').insert([
         {
           patient_id: patientId,
           date: date,
-          readings: currentReadings
+          readings: readingsToSave // Use the edited/parsed readings
         }
       ]);
 
@@ -155,6 +177,9 @@
         console.log(error);
       } else {
         alert('Lab report saved.');
+        readingsEditor.value = ''; // Clear textarea after saving
+        readingsEditor.style.display = 'none'; // Hide textarea
+        document.getElementById('saveBtn').style.display = 'none'; // Hide save button
         loadPreviousReports();
       }
     }
