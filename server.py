@@ -1,41 +1,30 @@
 import os
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-
-# --- LLMs ---
-import openai  # using 0.28.x API for stability (chat.completions)
-try:
-    import google.generativeai as genai  # Gemini (optional)
-except Exception:
-    genai = None
-
-# --- PDF parsing ---
+import openai
+import requests
 import fitz  # PyMuPDF
 
-# --- Supabase ---
-from supabase import create_client  # requires supabase>=2.x
+# Optional Gemini
+try:
+    import google.generativeai as genai
+except Exception:
+    genai = None
 
 app = Flask(__name__)
 CORS(app, supports_credentials=True)
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Environment / Clients
-# ──────────────────────────────────────────────────────────────────────────────
-SUPABASE_URL = os.getenv("SUPABASE_URL", "")
+# ── Env ───────────────────────────────────────────────────────────────
+SUPABASE_URL = os.getenv("SUPABASE_URL", "").rstrip("/")
 SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 
 if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
-    print("WARNING: Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY")
+    print("WARNING: SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY is missing")
 
-# Supabase client (named `client` per your preference)
-client = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
-
-# OpenAI (0.28.x style)
 openai.api_key = OPENAI_API_KEY
 
-# Gemini (optional)
 gemini_model = None
 if GEMINI_API_KEY and genai is not None:
     try:
@@ -44,9 +33,39 @@ if GEMINI_API_KEY and genai is not None:
     except Exception as e:
         print("Gemini init failed:", e)
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Helpers
-# ──────────────────────────────────────────────────────────────────────────────
+# ── Supabase REST helpers ─────────────────────────────────────────────
+REST_URL = f"{SUPABASE_URL}/rest/v1"
+REST_HEADERS = {
+    "apikey": SUPABASE_SERVICE_ROLE_KEY,
+    "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+    "Content-Type": "application/json",
+    "Prefer": "return=representation",
+}
+
+def sb_select(table, eq=None, order=None, limit=None):
+    """
+    eq: dict of column -> value
+    order: tuple (col, desc_bool)
+    """
+    params = {}
+    if eq:
+        for k, v in eq.items():
+            params[f"{k}"] = f"eq.{v}"
+    if order:
+        col, desc = order
+        params["order"] = f"{col}.{'desc' if desc else 'asc'}"
+    if limit:
+        params["limit"] = str(limit)
+    r = requests.get(f"{REST_URL}/{table}", headers=REST_HEADERS, params=params, timeout=30)
+    r.raise_for_status()
+    return r.json()
+
+def sb_insert(table, payload):
+    r = requests.post(f"{REST_URL}/{table}", headers=REST_HEADERS, json=payload, timeout=30)
+    r.raise_for_status()
+    return r.json()
+
+# ── Utilities ────────────────────────────────────────────────────────
 def is_float(x):
     try:
         float(x)
@@ -54,13 +73,7 @@ def is_float(x):
     except Exception:
         return False
 
-
 def extract_lab_data_from_text(text):
-    """
-    Very loose parser that tries to split lines like:
-    'Sodium 140 mmol/L 135-145' or 'Glucose 98 mg/dL'
-    into { test, result, units, ref_range, flag }
-    """
     lines = text.splitlines()
     readings = []
     for line in lines:
@@ -72,22 +85,19 @@ def extract_lab_data_from_text(text):
                 units = ""
                 ref_range = ""
                 flag = None
-
                 for i, part in enumerate(parts):
                     if is_float(part):
                         result = part
                         name_parts = parts[:i]
                         remaining = parts[i + 1 :]
-                        # optional flag like High/Low
                         if remaining and remaining[0] in ("High", "Low"):
                             flag = remaining[0]
                             units = remaining[1] if len(remaining) > 1 else ""
-                            ref_range = " ".join(remaining[2:]) if len(remaining) > 2 else ""
+                            ref_range = " ".join(remaining[2:])
                         else:
                             units = remaining[0] if len(remaining) > 0 else ""
-                            ref_range = " ".join(remaining[1:]) if len(remaining) > 1 else ""
+                            ref_range = " ".join(remaining[1:])
                         break
-
                 if result:
                     readings.append(
                         {
@@ -102,12 +112,9 @@ def extract_lab_data_from_text(text):
                 continue
     return readings
 
-
-# ──────────────────────────────────────────────────────────────────────────────
-# AI endpoint
-# ──────────────────────────────────────────────────────────────────────────────
+# ── AI endpoint ──────────────────────────────────────────────────────
 @app.route("/ask-openai", methods=["POST"])
-def ask_openai():
+def ask_openai_route():
     data = request.get_json() or {}
     patient_id = data.get("patient_id")
     user_prompt = data.get("prompt")
@@ -117,27 +124,11 @@ def ask_openai():
         return jsonify({"error": "Missing patient_id or prompt"}), 400
 
     try:
-        meds = client.table("medicationslist").select("*").eq("patient_id", patient_id).execute().data
-        health = client.table("healthRecords").select("*").eq("patient_id", patient_id).execute().data
-        surgeries = client.table("surgeryHistory").select("*").eq("patient_id", patient_id).execute().data
-        lab_result = (
-            client.table("lab_reports")
-            .select("*")
-            .eq("patient_id", patient_id)
-            .order("date", desc=True)
-            .limit(1)
-            .execute()
-            .data
-        )
-        vital_signs = (
-            client.table("vital_signs")
-            .select("*")
-            .eq("patient_id", patient_id)
-            .order("recorded_at", desc=True)
-            .limit(5)
-            .execute()
-            .data
-        )
+        meds = sb_select("medicationslist", eq={"patient_id": patient_id})
+        health = sb_select("healthRecords", eq={"patient_id": patient_id})
+        surgeries = sb_select("surgeryHistory", eq={"patient_id": patient_id})
+        lab_result = sb_select("lab_reports", eq={"patient_id": patient_id}, order=("date", True), limit=1)
+        vital_signs = sb_select("vital_signs", eq={"patient_id": patient_id}, order=("recorded_at", True), limit=5)
 
         enhanced = ["Patient background:"]
 
@@ -177,8 +168,7 @@ def ask_openai():
         if vital_signs:
             enhanced.append("\nRecent Vital Signs:")
             for vs in vital_signs:
-                recorded_at = vs.get("recorded_at", "")
-                line = f"- When: {recorded_at}"
+                line = f"- When: {vs.get('recorded_at','')}"
                 if vs.get("average_weight") is not None:
                     line += f", Weight: {vs['average_weight']} lbs"
                 if vs.get("average_glucose") is not None:
@@ -213,19 +203,16 @@ def ask_openai():
             return jsonify({"error": "Invalid LLM choice"}), 400
 
         return jsonify({"response": reply})
+    except requests.HTTPError as e:
+        return jsonify({"error": f"Supabase REST error: {e.response.text}"}), 500
     except Exception as e:
-        print("Error in /ask-openai:", e)
         return jsonify({"error": str(e)}), 500
 
-
-# ──────────────────────────────────────────────────────────────────────────────
-# Lab readings extraction
-# ──────────────────────────────────────────────────────────────────────────────
+# ── Lab readings extraction ──────────────────────────────────────────
 @app.route("/extract-readings", methods=["POST"])
 def extract_readings():
     if "pdf" not in request.files:
         return jsonify({"error": "No PDF uploaded"}), 400
-
     pdf_file = request.files["pdf"]
     try:
         doc = fitz.open(stream=pdf_file.read(), filetype="pdf")
@@ -233,70 +220,20 @@ def extract_readings():
         readings = extract_lab_data_from_text(text)
         return jsonify({"readings": readings})
     except Exception as e:
-        print("Error in /extract-readings:", e)
         return jsonify({"error": str(e)}), 500
 
-
-# ──────────────────────────────────────────────────────────────────────────────
-# Admin: reset password
-# ──────────────────────────────────────────────────────────────────────────────
-@app.route("/admin-reset-password", methods=["POST"])
-def admin_reset_password():
-    try:
-        data = request.get_json(force=True)
-        email = data.get("email")
-        new_password = data.get("new_password")
-        if not email or not new_password:
-            return jsonify({"error": "Missing email or new_password"}), 400
-
-        user_list_response = client.auth.admin.list_users()
-        users = user_list_response.get("users", []) if isinstance(user_list_response, dict) else user_list_response
-
-        target_user_id = None
-        for u in users:
-            if isinstance(u, dict) and u.get("email") == email:
-                target_user_id = u.get("id")
-                break
-
-        if not target_user_id:
-            return jsonify({"error": "User not found"}), 404
-
-        client.auth.admin.update_user_by_id(target_user_id, {"password": new_password})
-        return jsonify({"success": True})
-    except Exception as e:
-        print("Error in /admin-reset-password:", e)
-        return jsonify({"error": str(e)}), 500
-
-
-# ──────────────────────────────────────────────────────────────────────────────
-# Vital signs
-# ──────────────────────────────────────────────────────────────────────────────
+# ── Vital signs ─────────────────────────────────────────────────────
 @app.route("/vital-signs", methods=["POST"])
 def add_vital_signs():
-    """
-    JSON payload:
-    {
-      "patient_id": "...",
-      "recorded_at": "YYYY-MM-DDTHH:MM",
-      "average_weight": 150.2,
-      "average_glucose": 95.0,
-      "average_systolic": 120,
-      "average_diastolic": 80,
-      "average_oxygen": 98.5,
-      "heart_rate": 72,
-      "notes": "after breakfast"
-    }
-    """
     data = request.get_json() or {}
     patient_id = data.get("patient_id")
     recorded_at = data.get("recorded_at")
-
     if not patient_id or not recorded_at:
         return jsonify({"error": "Missing patient_id or recorded_at"}), 400
 
     payload = {
         "patient_id": patient_id,
-        "recorded_at": recorded_at,  # Postgres accepts ISO-like strings
+        "recorded_at": recorded_at,  # ISO-like string accepted by Postgres
         "average_weight": data.get("average_weight"),
         "average_glucose": data.get("average_glucose"),
         "average_systolic": data.get("average_systolic"),
@@ -305,36 +242,33 @@ def add_vital_signs():
         "heart_rate": data.get("heart_rate"),
         "notes": data.get("notes"),
     }
-    # Strip None values
     payload = {k: v for k, v in payload.items() if v is not None}
 
     try:
-        res = client.table("vital_signs").insert(payload).execute()
-        return jsonify({"success": True, "data": res.data}), 201
+        inserted = sb_insert("vital_signs", payload)
+        return jsonify({"success": True, "data": inserted}), 201
+    except requests.HTTPError as e:
+        return jsonify({"error": f"Supabase REST insert error: {e.response.text}"}), 500
     except Exception as e:
-        print("Error in /vital-signs POST:", e)
         return jsonify({"error": str(e)}), 500
-
 
 @app.route("/vital-signs/<patient_id>", methods=["GET"])
 def get_vital_signs(patient_id):
     try:
-        res = (
-            client.table("vital_signs")
-            .select("*")
-            .eq("patient_id", patient_id)
-            .order("recorded_at", desc=True)
-            .execute()
-        )
-        return jsonify({"success": True, "data": res.data}), 200
+        rows = sb_select("vital_signs", eq={"patient_id": patient_id}, order=("recorded_at", True))
+        return jsonify({"success": True, "data": rows}), 200
+    except requests.HTTPError as e:
+        return jsonify({"error": f"Supabase REST select error: {e.response.text}"}), 500
     except Exception as e:
-        print("Error in /vital-signs GET:", e)
         return jsonify({"error": str(e)}), 500
 
+# ── Admin reset (left as-is; SDK-free approach would need GoTrue REST/JWT) ───
+# If you use this route, we should port it to GoTrue Admin REST. For now, keep disabled or remove.
+@app.route("/admin-reset-password", methods=["POST"])
+def admin_reset_password():
+    return jsonify({"error": "Admin reset not implemented without SDK"}), 501
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Entrypoint
-# ──────────────────────────────────────────────────────────────────────────────
+# ── Entrypoint ───────────────────────────────────────────────────────
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "5000"))
     app.run(host="0.0.0.0", port=port)
