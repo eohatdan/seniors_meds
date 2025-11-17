@@ -4,6 +4,7 @@ from flask_cors import CORS
 import openai
 import requests
 import fitz  # PyMuPDF
+import re
 
 # Optional Gemini
 try:
@@ -73,150 +74,219 @@ def is_float(x):
         return True
     except Exception:
         return False
+def _is_number(s: str) -> bool:
+    try:
+        float(s)
+        return True
+    except Exception:
+        return False
 
-import re
+
+def _is_date(s: str) -> bool:
+    # 07/29/2025 style dates
+    return bool(re.match(r"\d{2}/\d{2}/\d{4}$", s))
+
+
+def _is_flag(s: str) -> bool:
+    return s in {"High", "Low", "HIGH", "LOW", "H", "L"}
+
+
+def _looks_like_reference(s: str) -> bool:
+    # Things like "70-99", ">59", "<5.7", "Not Estab."
+    if "Not Estab" in s:
+        return True
+    if re.search(r"[<>]", s):
+        return True
+    if re.search(r"\d", s) and "-" in s:
+        return True
+    return False
+
+
+def _looks_like_units(s: str) -> bool:
+    # If it looks like a reference interval, then it's *not* units.
+    if _looks_like_reference(s):
+        return False
+    # Single "%" (for % differentials) counts as units.
+    if s == "%":
+        return True
+    # Units usually have letters or slashes, e.g. mg/dL, x10E3/uL, pg/mL
+    if re.search(r"[A-Za-z]", s) or "/" in s or "^" in s:
+        return True
+    return False
+
 
 def extract_lab_data_from_text(text: str):
     """
     Parse Labcorp-style lab report text into structured readings.
 
-    Returns a list of dicts like:
-    {
-      "test_name": "Glucose",
-      "panel": "Comp. Metabolic Panel (14)",
-      "value": 107.0,
-      "units": "mg/dL",
-      "reference": "70-99",
-      "flags": "High"
-    }
+    Each test appears as a vertical stack of lines, e.g.:
+
+        WBC 01
+        5.8
+        5.8
+        07/29/2025
+        x10E3/uL
+        3.4-10.8
+
+    With optional flag:
+
+        Glucose 01
+        107
+        High
+        100
+        07/29/2025
+        mg/dL
+        70-99
+
+    Or without units (e.g. BUN/Creatinine Ratio):
+
+        BUN/Creatinine Ratio
+        15
+        19
+        07/29/2025
+        10-24
     """
 
+    lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
     readings = []
 
-    # Split & normalize lines (drop blank ones)
-    lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
-
-    # Track which panel we are in and whether we are currently in a table
     current_panel = None
     in_table = False
+    i = 0
 
-    # Patterns for table rows
-    # 1) Rows that include the "01" code column
-    pattern_with_code = re.compile(
-        r"""
-        ^\s*
-        (?P<name>.+?)          # test name (greedy, minimal once followed by 01)
-        \s+01\s+
-        (?P<current>-?\d+(?:\.\d+)?)       # current numeric result
-        (?:\s+(?P<flag>High|Low|HIGH|LOW|H|L))?   # optional flag
-        (?:\s+(?P<prev>-?\d+(?:\.\d+)?))?         # optional previous result
-        (?:\s+(?P<prev_date>\d{2}/\d{2}/\d{4}))?  # optional previous date
-        (?:\s+(?P<units>[A-Za-z0-9/%\.\^]+))?     # optional units
-        (?:\s+(?P<ref>[0-9A-Za-z .\-–<>/]+))?     # optional reference interval
-        \s*$
-        """,
-        re.VERBOSE,
-    )
+    while i < len(lines):
+        ln = lines[i].strip()
 
-    # 2) Rows without the "01" code (e.g., eGFR, BUN/Creatinine Ratio)
-    pattern_no_code = re.compile(
-        r"""
-        ^\s*
-        (?P<name>.+?)\s+
-        (?P<current>-?\d+(?:\.\d+)?)\s+
-        (?: (?P<flag>High|Low|HIGH|LOW|H|L) \s+ )?   # optional flag
-        (?: (?P<prev>-?\d+(?:\.\d+)?) )? \s*
-        (?: (?P<prev_date>\d{2}/\d{2}/\d{4}) )? \s*
-        (?: (?P<units>[A-Za-z0-9/%\.\^]+) )? \s*
-        (?: (?P<ref>[0-9A-Za-z .\-–<>/]+) )?
-        \s*$
-        """,
-        re.VERBOSE,
-    )
-
-    for ln in lines:
-        # ── Detect which panel we are in ─────────────────────────────
+        # ── Panel detection ────────────────────────────────────────
         if ln.startswith("CBC With Differential/Platelet"):
             current_panel = "CBC With Differential/Platelet"
             in_table = False
+            i += 1
             continue
+
         if ln.startswith("Comp. Metabolic Panel (14)"):
             current_panel = "Comp. Metabolic Panel (14)"
             in_table = False
+            i += 1
             continue
+
         if ln == "Lipid Panel":
             current_panel = "Lipid Panel"
             in_table = False
+            i += 1
             continue
+
         if ln.startswith("B-Type Natriuretic Peptide"):
             current_panel = "B-Type Natriuretic Peptide"
             in_table = False
+            i += 1
             continue
 
-        # Column header line for these tables
-        if (
-            "Test Current Result and Flag Previous Result and Date Units Reference Interval"
-            in ln
-        ):
-            in_table = True
-            continue
+        # ── Table header row ──────────────────────────────────────
+        if ln == "Test":
+            if (
+                i + 4 < len(lines)
+                and "Current Result and Flag" in lines[i + 1]
+                and "Previous Result and Date" in lines[i + 2]
+                and lines[i + 3].strip() == "Units"
+                and lines[i + 4].strip() == "Reference Interval"
+            ):
+                in_table = True
+                i += 5
+                continue
 
-        # If we are not inside a known table, skip
+        # If we are not inside a known table, move on
         if not in_table or current_panel is None:
+            i += 1
             continue
 
-        # End-of-table markers: footers, copyright, etc.
+        # ── End-of-table / footer markers ─────────────────────────
         if (
             ln.startswith("Date Created and Stored")
-            or ln.startswith("©202")
             or ln.startswith("This document contains")
-            or ln.startswith("Historical Results & Insights")
+            or ln.startswith("Historical Results")
             or ln.startswith("Icon Legend")
             or ln.startswith("Performing Labs")
         ):
             in_table = False
+            i += 1
             continue
 
-        # Try to parse a table row
-        m = pattern_with_code.match(ln)
-        if not m:
-            m = pattern_no_code.match(ln)
-        if not m:
-            # Not a data row we recognize; skip
+        # ── Treat this line as a possible test name ───────────────
+        name = ln.replace("\xa0", " ").strip()
+
+        # Next line must be the current numeric result
+        if i + 1 >= len(lines) or not _is_number(lines[i + 1].strip()):
+            i += 1
             continue
 
-        name = (m.group("name") or "").strip()
-        current_str = m.group("current")
-        flag = (m.group("flag") or "").strip() or None
-        units = (m.group("units") or "").strip() or None
-        ref = (m.group("ref") or "").strip() or None
+        current_str = lines[i + 1].strip()
+        j = i + 2
 
-        # Special fix: rows like "BUN/Creatinine Ratio 15 19 07/29/2025 10-24"
-        # have NO units; "10-24" is actually the reference interval but
-        # lands in the 'units' slot in the no-code pattern.
-        if units and not ref and re.match(r"^\d+(\.\d+)?-\d+(\.\d+)?$", units):
-            ref = units
-            units = None
+        flag = None
+        previous = None
+        previous_date = None
+        units = None
+        reference = None
 
-        # Convert numeric value
+        # Optional flag (High/Low/H/L)
+        if j < len(lines) and _is_flag(lines[j].strip()):
+            flag = lines[j].strip()
+            j += 1
+
+        # Previous numeric result
+        if j < len(lines) and _is_number(lines[j].strip()):
+            previous = lines[j].strip()
+            j += 1
+
+        # Previous result date
+        if j < len(lines) and _is_date(lines[j].strip()):
+            previous_date = lines[j].strip()
+            j += 1
+
+        # Optional units and reference
+        if j < len(lines):
+            cand = lines[j].strip()
+            if _looks_like_units(cand):
+                units = cand
+                j += 1
+                if j < len(lines):
+                    ref_cand = lines[j].strip()
+                    if _looks_like_reference(ref_cand) or not _looks_like_units(ref_cand):
+                        reference = ref_cand
+                        j += 1
+            elif _looks_like_reference(cand):
+                reference = cand
+                j += 1
+
+        # Convert current value to float
         try:
             value = float(current_str)
-        except (TypeError, ValueError):
+        except Exception:
             value = None
+
+        # Convert previous if present
+        prev_value = None
+        if previous is not None and _is_number(previous):
+            prev_value = float(previous)
 
         readings.append(
             {
-                "test_name": name,
                 "panel": current_panel,
+                "test_name": name,
                 "value": value,
                 "units": units,
-                "reference": ref,
+                "reference": reference,
                 "flags": flag,
+                "previous": prev_value,
+                "previous_date": previous_date,
             }
         )
 
-    return readings
+        # Move to the next unread line
+        i = j
 
+    return readings
 
 # ── AI endpoint ──────────────────────────────────────────────────────
 @app.route("/ask-openai", methods=["POST"])
