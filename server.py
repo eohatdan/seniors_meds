@@ -42,6 +42,7 @@ REST_HEADERS = {
     "Prefer": "return=representation",
 }
 
+
 def sb_select(table, eq=None, order=None, limit=None):
     """
     eq: dict of column -> value
@@ -73,44 +74,83 @@ def is_float(x):
     except Exception:
         return False
 
-def extract_lab_data_from_text(text):
-    lines = text.splitlines()
+import re
+
+def extract_lab_data_from_text(text: str):
+    """
+    Parse common lab report lines into structured readings.
+
+    Returns a list of dicts like:
+    {
+      "test_name": "Glucose",
+      "value": 102.0,
+      "units": "mg/dL",
+      "reference": "65-99",
+      "flags": "H"  # optional
+    }
+    """
+
     readings = []
-    for line in lines:
-        parts = line.strip().split()
-        if len(parts) >= 2:
-            try:
-                name_parts = []
-                result = None
-                units = ""
-                ref_range = ""
-                flag = None
-                for i, part in enumerate(parts):
-                    if is_float(part):
-                        result = part
-                        name_parts = parts[:i]
-                        remaining = parts[i + 1 :]
-                        if remaining and remaining[0] in ("High", "Low"):
-                            flag = remaining[0]
-                            units = remaining[1] if len(remaining) > 1 else ""
-                            ref_range = " ".join(remaining[2:])
-                        else:
-                            units = remaining[0] if len(remaining) > 0 else ""
-                            ref_range = " ".join(remaining[1:])
-                        break
-                if result:
-                    readings.append(
-                        {
-                            "test": " ".join(name_parts),
-                            "result": result,
-                            "units": units,
-                            "ref_range": ref_range,
-                            "flag": flag,
-                        }
-                    )
-            except Exception:
-                continue
+
+    # Normalize whitespace a bit
+    lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
+
+    # Example row formats this is trying to capture:
+    #
+    #   Glucose               102    mg/dL       65-99
+    #   Hemoglobin A1c        6.8    %          <5.7
+    #   Sodium                140    mmol/L     135-145
+    #
+    # Sometimes with flags:
+    #   Glucose               112 H  mg/dL      65-99
+    #
+    # We allow:
+    #   test_name  value [flag] units [reference]
+    #
+    row_pattern = re.compile(
+        r"""
+        ^\s*
+        (?P<name>[A-Za-z0-9 /(),.%+-]+?)   # test name (fairly loose)
+        \s+
+        (?P<value>-?\d+(?:\.\d+)?)         # numeric value
+        (?:\s+(?P<flag>[A-Z*]+))?          # optional flag(s): H, L, etc.
+        \s+
+        (?P<units>[A-Za-z/%µ\^0-9]+)?      # optional units (mg/dL, mmol/L, %, etc.)
+        (?:\s+(?P<ref>[0-9A-Za-z .\-–<>/]+))?   # optional reference range / note
+        \s*$
+        """,
+        re.VERBOSE
+    )
+
+    for ln in lines:
+        m = row_pattern.match(ln)
+        if not m:
+            # If you want to see what isn't matching while tuning, uncomment:
+            # print("NO MATCH:", repr(ln))
+            continue
+
+        name = (m.group("name") or "").strip()
+        value_str = m.group("value")
+        flag = (m.group("flag") or "").strip()
+        units = (m.group("units") or "").strip()
+        ref = (m.group("ref") or "").strip()
+
+        # Convert numeric value if possible
+        try:
+            value_num = float(value_str)
+        except (TypeError, ValueError):
+            value_num = None
+
+        readings.append({
+            "test_name": name,
+            "value": value_num,
+            "units": units or None,
+            "reference": ref or None,
+            "flags": flag or None,
+        })
+
     return readings
+
 
 # ── AI endpoint ──────────────────────────────────────────────────────
 @app.route("/ask-openai", methods=["POST"])
