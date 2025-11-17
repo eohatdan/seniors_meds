@@ -78,76 +78,142 @@ import re
 
 def extract_lab_data_from_text(text: str):
     """
-    Parse common lab report lines into structured readings.
+    Parse Labcorp-style lab report text into structured readings.
 
     Returns a list of dicts like:
     {
       "test_name": "Glucose",
-      "value": 102.0,
+      "panel": "Comp. Metabolic Panel (14)",
+      "value": 107.0,
       "units": "mg/dL",
-      "reference": "65-99",
-      "flags": "H"  # optional
+      "reference": "70-99",
+      "flags": "High"
     }
     """
 
     readings = []
 
-    # Normalize whitespace a bit
+    # Split & normalize lines (drop blank ones)
     lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
 
-    # Example row formats this is trying to capture:
-    #
-    #   Glucose               102    mg/dL       65-99
-    #   Hemoglobin A1c        6.8    %          <5.7
-    #   Sodium                140    mmol/L     135-145
-    #
-    # Sometimes with flags:
-    #   Glucose               112 H  mg/dL      65-99
-    #
-    # We allow:
-    #   test_name  value [flag] units [reference]
-    #
-    row_pattern = re.compile(
+    # Track which panel we are in and whether we are currently in a table
+    current_panel = None
+    in_table = False
+
+    # Patterns for table rows
+    # 1) Rows that include the "01" code column
+    pattern_with_code = re.compile(
         r"""
         ^\s*
-        (?P<name>[A-Za-z0-9 /(),.%+-]+?)   # test name (fairly loose)
-        \s+
-        (?P<value>-?\d+(?:\.\d+)?)         # numeric value
-        (?:\s+(?P<flag>[A-Z*]+))?          # optional flag(s): H, L, etc.
-        \s+
-        (?P<units>[A-Za-z/%µ\^0-9]+)?      # optional units (mg/dL, mmol/L, %, etc.)
-        (?:\s+(?P<ref>[0-9A-Za-z .\-–<>/]+))?   # optional reference range / note
+        (?P<name>.+?)          # test name (greedy, minimal once followed by 01)
+        \s+01\s+
+        (?P<current>-?\d+(?:\.\d+)?)       # current numeric result
+        (?:\s+(?P<flag>High|Low|HIGH|LOW|H|L))?   # optional flag
+        (?:\s+(?P<prev>-?\d+(?:\.\d+)?))?         # optional previous result
+        (?:\s+(?P<prev_date>\d{2}/\d{2}/\d{4}))?  # optional previous date
+        (?:\s+(?P<units>[A-Za-z0-9/%\.\^]+))?     # optional units
+        (?:\s+(?P<ref>[0-9A-Za-z .\-–<>/]+))?     # optional reference interval
         \s*$
         """,
-        re.VERBOSE
+        re.VERBOSE,
+    )
+
+    # 2) Rows without the "01" code (e.g., eGFR, BUN/Creatinine Ratio)
+    pattern_no_code = re.compile(
+        r"""
+        ^\s*
+        (?P<name>.+?)\s+
+        (?P<current>-?\d+(?:\.\d+)?)\s+
+        (?: (?P<flag>High|Low|HIGH|LOW|H|L) \s+ )?   # optional flag
+        (?: (?P<prev>-?\d+(?:\.\d+)?) )? \s*
+        (?: (?P<prev_date>\d{2}/\d{2}/\d{4}) )? \s*
+        (?: (?P<units>[A-Za-z0-9/%\.\^]+) )? \s*
+        (?: (?P<ref>[0-9A-Za-z .\-–<>/]+) )?
+        \s*$
+        """,
+        re.VERBOSE,
     )
 
     for ln in lines:
-        m = row_pattern.match(ln)
+        # ── Detect which panel we are in ─────────────────────────────
+        if ln.startswith("CBC With Differential/Platelet"):
+            current_panel = "CBC With Differential/Platelet"
+            in_table = False
+            continue
+        if ln.startswith("Comp. Metabolic Panel (14)"):
+            current_panel = "Comp. Metabolic Panel (14)"
+            in_table = False
+            continue
+        if ln == "Lipid Panel":
+            current_panel = "Lipid Panel"
+            in_table = False
+            continue
+        if ln.startswith("B-Type Natriuretic Peptide"):
+            current_panel = "B-Type Natriuretic Peptide"
+            in_table = False
+            continue
+
+        # Column header line for these tables
+        if (
+            "Test Current Result and Flag Previous Result and Date Units Reference Interval"
+            in ln
+        ):
+            in_table = True
+            continue
+
+        # If we are not inside a known table, skip
+        if not in_table or current_panel is None:
+            continue
+
+        # End-of-table markers: footers, copyright, etc.
+        if (
+            ln.startswith("Date Created and Stored")
+            or ln.startswith("©202")
+            or ln.startswith("This document contains")
+            or ln.startswith("Historical Results & Insights")
+            or ln.startswith("Icon Legend")
+            or ln.startswith("Performing Labs")
+        ):
+            in_table = False
+            continue
+
+        # Try to parse a table row
+        m = pattern_with_code.match(ln)
         if not m:
-            # If you want to see what isn't matching while tuning, uncomment:
-            # print("NO MATCH:", repr(ln))
+            m = pattern_no_code.match(ln)
+        if not m:
+            # Not a data row we recognize; skip
             continue
 
         name = (m.group("name") or "").strip()
-        value_str = m.group("value")
-        flag = (m.group("flag") or "").strip()
-        units = (m.group("units") or "").strip()
-        ref = (m.group("ref") or "").strip()
+        current_str = m.group("current")
+        flag = (m.group("flag") or "").strip() or None
+        units = (m.group("units") or "").strip() or None
+        ref = (m.group("ref") or "").strip() or None
 
-        # Convert numeric value if possible
+        # Special fix: rows like "BUN/Creatinine Ratio 15 19 07/29/2025 10-24"
+        # have NO units; "10-24" is actually the reference interval but
+        # lands in the 'units' slot in the no-code pattern.
+        if units and not ref and re.match(r"^\d+(\.\d+)?-\d+(\.\d+)?$", units):
+            ref = units
+            units = None
+
+        # Convert numeric value
         try:
-            value_num = float(value_str)
+            value = float(current_str)
         except (TypeError, ValueError):
-            value_num = None
+            value = None
 
-        readings.append({
-            "test_name": name,
-            "value": value_num,
-            "units": units or None,
-            "reference": ref or None,
-            "flags": flag or None,
-        })
+        readings.append(
+            {
+                "test_name": name,
+                "panel": current_panel,
+                "value": value,
+                "units": units,
+                "reference": ref,
+                "flags": flag,
+            }
+        )
 
     return readings
 
