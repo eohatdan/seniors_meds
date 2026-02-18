@@ -30,7 +30,7 @@ gemini_model = None
 if GEMINI_API_KEY and genai is not None:
     try:
         genai.configure(api_key=GEMINI_API_KEY)
-        gemini_model = genai.GenerativeModel("gemini-2.0-flash")
+        gemini_model = genai.GenerativeModel("gemini-2.5-flash")
     except Exception as e:
         print("Gemini init failed:", e)
 
